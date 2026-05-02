@@ -14,12 +14,13 @@ if [ ! -d "$SRC" ] || [ -z "$OUT" ]; then
 	exit 2
 fi
 
+USE_VENDOR=""
+[ -d "$ROOT/third_party/amneziawg-go/vendor" ] && USE_VENDOR=1
+
 REALGO=""
 GROOT=""
-for d in /usr/local/go[0-9]*; do
-	[ -x "$d/bin/go" ] && GROOT="$d"
-done
-if [ -n "$GROOT" ]; then
+GROOT=$(ls -d /usr/local/go[0-9]* 2>/dev/null | sort -V | tail -1)
+if [ -n "$GROOT" ] && [ -x "$GROOT/bin/go" ]; then
 	REALGO="$GROOT/bin/go"
 	export GOROOT="$GROOT"
 fi
@@ -29,7 +30,7 @@ if [ -z "$REALGO" ]; then
 	done
 fi
 if [ -z "$REALGO" ]; then
-	echo "ERROR: no Go compiler found (try: pkg install -y go123)" >&2
+	echo "ERROR: no Go compiler found (try: pkg install -y go123 or go124)" >&2
 	exit 1
 fi
 if [ -z "$GOROOT" ]; then
@@ -53,10 +54,18 @@ if [ "$PATCH_GOMOD" != "0" ]; then
 		NUMVER=$("$REALGO" version 2>/dev/null | awk '{print $3}' | sed -e 's/^go//')
 	fi
 	if [ -n "$NUMVER" ]; then
-		echo "===> Aligning go.mod to host toolchain: go $NUMVER"
 		cp -f go.mod go.mod.pfsense.bak
-		sed -i.bak -e '/^toolchain[[:space:]]/d' \
-			-e "s/^go[[:space:]].*/go $NUMVER/" go.mod
+		if [ -n "$USE_VENDOR" ]; then
+			# Do not lower the main module's `go` line: GOTOOLCHAIN=auto follows it; if we
+			# forced go 1.23.x while vendor/modules.txt requires go >= 1.24, auto would never
+			# fetch a newer toolchain (only module zips are skipped with -mod=vendor).
+			echo "===> Vendored build: stripping toolchain directive only (keeping upstream go line)"
+			sed -i.bak -e '/^toolchain[[:space:]]/d' go.mod
+		else
+			echo "===> Aligning go.mod to host toolchain: go $NUMVER"
+			sed -i.bak -e '/^toolchain[[:space:]]/d' \
+				-e "s/^go[[:space:]].*/go $NUMVER/" go.mod
+		fi
 		echo "===> go.mod head now:"
 		head -n 5 go.mod
 	else
@@ -65,7 +74,7 @@ if [ "$PATCH_GOMOD" != "0" ]; then
 fi
 
 VFLAG=""
-if [ -d "$ROOT/third_party/amneziawg-go/vendor" ]; then
+if [ -n "$USE_VENDOR" ]; then
 	echo "===> Using vendored modules (third_party/amneziawg-go/vendor) — no module proxy fetch"
 	rm -rf vendor
 	cp -a "$ROOT/third_party/amneziawg-go/vendor" .
@@ -74,8 +83,7 @@ fi
 
 # Without vendor: keep GOTOOLCHAIN=local so cmd/go does not download a newer toolchain
 # (can SIGSEGV on some pfSense kernels during downloads).
-# With -mod=vendor: vendored deps may record go >= 1.24 while the host is go123 (1.23.x).
-# GOTOOLCHAIN=auto then only upgrades the *compiler*; modules still come from vendor/.
+# With -mod=vendor: allow auto toolchain so a go 1.23 driver can run go 1.24+ per go.mod / vendor.
 GOTOOLCHAIN="${AMNEZIAWG_GOTOOLCHAIN:-}"
 if [ -z "$GOTOOLCHAIN" ]; then
 	if [ -n "$VFLAG" ]; then
