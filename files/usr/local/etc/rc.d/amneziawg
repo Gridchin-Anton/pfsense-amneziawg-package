@@ -1,0 +1,120 @@
+#!/bin/sh
+#
+# PROVIDE: amneziawg
+# REQUIRE: NETWORKING
+# BEFORE: LOGIN
+# KEYWORD: shutdown
+#
+
+. /etc/rc.subr
+
+name="amneziawg"
+rcvar="${name}_enable"
+extra_commands="reload"
+
+amneziawg_ifname()
+{
+	if [ -f /usr/local/etc/amneziawg/interface.txt ]; then
+		tr -d '\r\n' < /usr/local/etc/amneziawg/interface.txt
+	else
+		echo "amnezia0"
+	fi
+}
+
+amneziawg_log_level()
+{
+	if [ -f /usr/local/etc/amneziawg/log_level ]; then
+		tr -d '\r\n' < /usr/local/etc/amneziawg/log_level
+	else
+		echo "error"
+	fi
+}
+
+amneziawg_pidfile()
+{
+	echo "/var/run/amneziawg/$(amneziawg_ifname).pid"
+}
+
+amneziawg_start()
+{
+	if ! checkyesno amneziawg_enable; then
+		return 0
+	fi
+	if [ "$(tr -d '\r\n' < /usr/local/etc/amneziawg/enabled 2>/dev/null)" != "1" ]; then
+		return 0
+	fi
+	if [ ! -x /usr/local/bin/amneziawg-go ]; then
+		echo "amneziawg: /usr/local/bin/amneziawg-go missing"
+		return 1
+	fi
+	IF=$(amneziawg_ifname)
+	mkdir -p /var/run/amneziawg
+	LVL=$(amneziawg_log_level)
+	PIDF=$(amneziawg_pidfile)
+	if [ -f "${PIDF}" ] && /bin/kill -0 "$(cat "${PIDF}")" 2>/dev/null; then
+		echo "amneziawg already running (pid $(cat "${PIDF}"))"
+		return 0
+	fi
+	export LOG_LEVEL="${LVL}"
+	/usr/sbin/daemon -p "${PIDF}" -- /usr/local/bin/amneziawg-go -f "${IF}"
+	i=0
+	while [ "$i" -lt 50 ]; do
+		if [ -S "/var/run/amneziawg/${IF}.sock" ]; then
+			break
+		fi
+		sleep 1
+		i=$((i + 1))
+	done
+	if ! /usr/local/bin/php -f /usr/local/www/pkg/amneziawg/amneziawg_rc.php apply; then
+		echo "amneziawg: UAPI apply failed"
+	fi
+	/usr/local/bin/php -f /usr/local/www/pkg/amneziawg/amneziawg_rc.php ifconfig
+}
+
+amneziawg_stop()
+{
+	IF=$(amneziawg_ifname)
+	PIDF=$(amneziawg_pidfile)
+	if [ -f "${PIDF}" ]; then
+		PID=$(cat "${PIDF}")
+		if /bin/kill -0 "${PID}" 2>/dev/null; then
+			/bin/kill -TERM "${PID}" 2>/dev/null
+			for j in 1 2 3 4 5 6 7 8 9 10; do
+				if ! /bin/kill -0 "${PID}" 2>/dev/null; then
+					break
+				fi
+				sleep 1
+			done
+			if /bin/kill -0 "${PID}" 2>/dev/null; then
+				/bin/kill -KILL "${PID}" 2>/dev/null
+			fi
+		fi
+		rm -f "${PIDF}"
+	fi
+	rm -f "/var/run/amneziawg/${IF}.sock"
+}
+
+amneziawg_status()
+{
+	PIDF=$(amneziawg_pidfile)
+	if [ -f "${PIDF}" ] && /bin/kill -0 "$(cat "${PIDF}")" 2>/dev/null; then
+		echo "amneziawg is running as pid $(cat "${PIDF}")"
+	else
+		echo "amneziawg is not running"
+		return 1
+	fi
+}
+
+amneziawg_reload()
+{
+	amneziawg_stop
+	amneziawg_start
+}
+
+start_cmd=amneziawg_start
+stop_cmd=amneziawg_stop
+status_cmd=amneziawg_status
+reload_cmd=amneziawg_reload
+
+load_rc_config $name
+run_rc_command "$1"
