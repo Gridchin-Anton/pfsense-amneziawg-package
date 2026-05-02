@@ -16,7 +16,7 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
     pkg search -x '^go[0-9]'
     pkg install -y go123
     ```
-    After install, `go` is typically `/usr/local/bin/go`. The `Makefile` prepends `/usr/local/bin` to `PATH` for the build (pfSense `make` may start with a minimal `PATH`). Override if needed: `make GO=/usr/local/bin/go clean pkg`.
+    The **go123** package installs the toolchain under **`/usr/local/go123/`** (compiler is **`/usr/local/go123/bin/go`**). There is often **no** `/usr/local/bin/go` unless you add a symlink yourself. The `Makefile` detects `/usr/local/go*/bin/go`, sets **`GOROOT`** (required for trimmed/poudriere-built `go` binaries), and prepends `/usr/local/bin` to `PATH`. Override: `make GO=/usr/local/go123/bin/go clean pkg`.
   - `git`, `rsync`, `pkg`
 - **Runtime:** pfSense with PHP (as shipped), optional **`wg`** from **wireguard-tools** for the **Generate** private-key button (`wg genkey`).
 

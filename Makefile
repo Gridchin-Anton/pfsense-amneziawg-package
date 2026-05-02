@@ -39,25 +39,36 @@ build-go: fetch
 		PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/sbin:$$PATH"; \
 		export PATH; \
 		REALGO=""; \
-		for G in /usr/local/bin/go /usr/local/sbin/go /usr/local/go/bin/go; do \
-			if [ -x "$$G" ]; then REALGO="$$G"; break; fi; \
-		done; \
+		GROOT=$$(ls -d /usr/local/go[0-9]* 2>/dev/null | sort -V | tail -1); \
+		if [ -n "$$GROOT" ] && [ -x "$$GROOT/bin/go" ]; then \
+			REALGO="$$GROOT/bin/go"; \
+			export GOROOT="$$GROOT"; \
+		fi; \
+		if [ -z "$$REALGO" ]; then \
+			for G in /usr/local/bin/go /usr/local/sbin/go /usr/local/go/bin/go; do \
+				if [ -x "$$G" ]; then REALGO="$$G"; break; fi; \
+			done; \
+		fi; \
 		if [ -z "$$REALGO" ] && command -v "${GO}" >/dev/null 2>&1; then \
 			REALGO=$$(command -v "${GO}"); \
+		fi; \
+		if [ -n "$$REALGO" ] && [ -z "$$GOROOT" ]; then \
+			GROOT=$$(ls -d /usr/local/go[0-9]* 2>/dev/null | sort -V | tail -1); \
+			if [ -n "$$GROOT" ] && [ -d "$$GROOT/src" ]; then export GOROOT="$$GROOT"; fi; \
 		fi; \
 		if [ -z "$$REALGO" ]; then \
 			echo ""; \
 			echo "===> Go not found (needed to compile amneziawg-go)."; \
-			echo "     pfSense repos usually have a versioned port (not lang/go). For example:"; \
-			echo "       pkg search -x '^go[0-9]'"; \
-			echo "       pkg install -y go123"; \
-			echo "     Then: ls -l /usr/local/bin/go"; \
-			echo "     Or build on another FreeBSD host and copy amneziawg-go, or: make SKIP_GO=1 clean pkg"; \
+			echo "     On pfSense install a versioned package, e.g.:"; \
+			echo "       pkg search -x '^go[0-9]'   # then: pkg install -y go123"; \
+			echo "     Go lives under /usr/local/go123/bin/go (not /usr/local/bin/go)."; \
+			echo "     Or: make GO=/usr/local/go123/bin/go clean pkg"; \
+			echo "     Or: make SKIP_GO=1 clean pkg   (stub binary)"; \
 			echo ""; \
 			exit 1; \
 		fi; \
 		mkdir -p "${.CURDIR}/files/usr/local/bin"; \
-		echo "===> Building amneziawg-go with $$REALGO"; \
+		echo "===> Building amneziawg-go with $$REALGO (GOROOT=$$GOROOT)"; \
 		cd "${AMNEZIAWG_SRC}" && env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
 			"$$REALGO" build -trimpath -ldflags="-s -w" -o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
 	fi
