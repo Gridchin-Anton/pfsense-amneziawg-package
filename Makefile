@@ -12,6 +12,7 @@ AMNEZIAWG_REPO?=	https://github.com/amnezia-vpn/amneziawg-go
 AMNEZIAWG_TAG?=	master
 AMNEZIAWG_SRC?=	${.CURDIR}/work/amneziawg-go
 
+# Go binary (override if not in PATH), e.g. GO=/usr/local/bin/go
 GO?=		go
 SKIP_GO?=	0
 
@@ -29,15 +30,32 @@ fetch:
 	fi
 
 build-go: fetch
-	@if [ "${SKIP_GO}" != "1" ]; then \
-		mkdir -p "${.CURDIR}/files/usr/local/bin"; \
-		cd "${AMNEZIAWG_SRC}" && env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
-			${GO} build -trimpath -ldflags="-s -w" -o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
-	else \
+	@if [ "${SKIP_GO}" = "1" ]; then \
 		mkdir -p "${.CURDIR}/files/usr/local/bin"; \
 		printf '%s\n' '#!/bin/sh' 'echo "amneziawg-go was not built (SKIP_GO=1); run make build-go" >&2' 'exit 1' \
 			> "${.CURDIR}/files/usr/local/bin/amneziawg-go"; \
 		chmod 0555 "${.CURDIR}/files/usr/local/bin/amneziawg-go"; \
+	else \
+		REALGO="${GO}"; \
+		if ! command -v "$$REALGO" >/dev/null 2>&1; then \
+			if [ -x /usr/local/bin/go ]; then \
+				REALGO=/usr/local/bin/go; \
+			elif [ -x /usr/local/go/bin/go ]; then \
+				REALGO=/usr/local/go/bin/go; \
+			else \
+				echo ""; \
+				echo "===> Go not found (needed to compile amneziawg-go)."; \
+				echo "     Install:  pkg install lang/go"; \
+				echo "     Or set:    make GO=/path/to/go clean pkg"; \
+				echo "     Or skip:   make SKIP_GO=1 clean pkg   (stub binary; replace later)"; \
+				echo ""; \
+				exit 1; \
+			fi; \
+		fi; \
+		mkdir -p "${.CURDIR}/files/usr/local/bin"; \
+		echo "===> Building amneziawg-go with $$REALGO"; \
+		cd "${AMNEZIAWG_SRC}" && env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
+			"$$REALGO" build -trimpath -ldflags="-s -w" -o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
 	fi
 
 clean:
