@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pfsense>
+	<menu>
+		<name>AmneziaWG</name>
+		<tooltiptext>AmneziaWG VPN (userspace)</tooltiptext>
+		<section>vpn</section>
+		<url>/pkg/amneziawg/vpn_amneziawg.php</url>
+	</menu>
+	<tabs>
+		<tab>
+			<text>Settings</text>
+			<url>/pkg/amneziawg/vpn_amneziawg.php</url>
+			<active/>
+		</tab>
+		<tab>
+			<text>Status</text>
+			<url>/pkg/amneziawg/vpn_amneziawg_status.php</url>
+		</tab>
+		<tab>
+			<text>Logs</text>
+			<url>/pkg/amneziawg/vpn_amneziawg_log.php</url>
+		</tab>
+	</tabs>
+	<service>
+		<name>amneziawg</name>
+		<rcfile>amneziawg</rcfile>
+		<executable>amneziawg-go</executable>
+		<description>AmneziaWG userspace daemon</description>
+	</service>
+</pfsense>
