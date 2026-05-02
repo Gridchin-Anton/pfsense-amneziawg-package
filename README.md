@@ -16,7 +16,7 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
     pkg search -x '^go[0-9]'
     pkg install -y go123
     ```
-    The **go123** package installs the toolchain under **`/usr/local/go123/`** (compiler is **`/usr/local/go123/bin/go`**). There is often **no** `/usr/local/bin/go` unless you add a symlink yourself. The `Makefile` detects `/usr/local/go*/bin/go`, sets **`GOROOT`** (required for trimmed/poudriere-built `go` binaries), and prepends `/usr/local/bin` to `PATH`. Override: `make GO=/usr/local/go123/bin/go clean pkg`.
+    The **go123** package installs the toolchain under **`/usr/local/go123/`** (compiler is **`/usr/local/go123/bin/go`**). There is often **no** `/usr/local/bin/go` unless you add a symlink yourself. **`scripts/build-amneziawg-go.sh`** picks the newest **`/usr/local/go*/bin/go`**, sets **`GOROOT`**, and prepends **`/usr/local/bin`** to **`PATH`** for the build.
 
     **Toolchain / SIGSEGV:** upstream `amneziawg-go` may declare **`go 1.24.x`** in `go.mod`. Older `go123` (1.23.x) then tries to **download** `go1.24.x`, which can crash on some pfSense/15-CURRENT kernels. The helper **`scripts/build-amneziawg-go.sh`** patches **`go.mod`** to the host version (and drops **`toolchain`** lines), exports **`GOTOOLCHAIN=local`** / **`GOWORK=off`**, then runs **`go build`**. (GNU/BSD `make` treats `` `...` `` and some `$(…)` forms specially in recipes, so the logic lives in plain `sh`.) To skip patching: `make AMNEZIAWG_PATCH_GOMOD=0 clean pkg`.
   - `git`, `rsync`, `pkg`
