@@ -1,0 +1,23 @@
+#!/bin/sh
+# post-install for pfsense-pkg-amneziawg
+set -e
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+export PATH
+
+mkdir -p /usr/local/etc/amneziawg /var/run/amneziawg
+if [ ! -f /usr/local/etc/amneziawg/enabled ]; then
+	echo "0" > /usr/local/etc/amneziawg/enabled
+fi
+chmod 0750 /usr/local/etc/amneziawg 2>/dev/null || true
+
+if [ -f /usr/local/etc/rc.d/amneziawg ]; then
+	chmod 0555 /usr/local/etc/rc.d/amneziawg
+fi
+
+if [ -x /usr/sbin/sysrc ]; then
+	/usr/sbin/sysrc amneziawg_enable=YES >/dev/null 2>&1 || true
+fi
+
+echo "pfsense-pkg-amneziawg: installed. Open VPN > AmneziaWG in the web UI, or run: /usr/local/etc/rc.d/amneziawg start"
+
+exit 0
