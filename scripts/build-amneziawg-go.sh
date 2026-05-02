@@ -1,5 +1,6 @@
 #!/bin/sh
 # Build amneziawg-go for packaging. Invoked from Makefile (avoids make $(…) parsing).
+# Homelab pfSense Go pin: TOOLCHAIN-PIN.txt at repo root (go1.26.2 → /usr/local/go124/).
 set -e
 PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/sbin:${PATH}"
 export PATH

@@ -1,0 +1,19 @@
+Homelab pfSense — pinned Go toolchain (do not lose track of this)
+====================================================================
+
+Last set up: 2026-05
+
+Version:     Go 1.26.2 (freebsd-amd64)
+Tarball:     go1.26.2.freebsd-amd64.tar.gz
+Upstream:    https://go.dev/dl/go1.26.2.freebsd-amd64.tar.gz
+
+Install layout (matches scripts/build-amneziawg-go.sh: newest /usr/local/go*):
+
+  fetch https://go.dev/dl/go1.26.2.freebsd-amd64.tar.gz
+  tar -C /usr/local -xzf go1.26.2.freebsd-amd64.tar.gz
+  mv /usr/local/go /usr/local/go124
+
+The extracted tree is always named "go"; rename to go124 (or go126) so multiple
+versions can coexist. The build script picks sort -V of /usr/local/go[0-9]*.
+
+Use the real filename in tar (never a placeholder like go1.24.x).

@@ -1,5 +1,6 @@
 # Build pfsense-pkg-amneziawg: amneziawg-go (FreeBSD/amd64) + pkg txz
 # Run on FreeBSD amd64 with Go 1.22+ and pkg installed.
+# Homelab pfSense: Go 1.26.2 from go.dev tarball → /usr/local/go124/ (see TOOLCHAIN-PIN.txt).
 
 VERSION=	0.1
 PKGNAME=	pfsense-pkg-amneziawg
@@ -55,7 +56,7 @@ vendor-export: fetch
 	rm -rf "${TOP}/third_party/amneziawg-go/vendor"
 	cp -a "${AMNEZIAWG_SRC}/vendor" "${TOP}/third_party/amneziawg-go/vendor"
 	rm -rf "${AMNEZIAWG_SRC}/vendor"
-	@echo "===> third_party/amneziawg-go/vendor ready (rsync repo to pfSense or commit)"
+	@echo "===> third_party/amneziawg-go/vendor ready (copy repo to pfSense or commit)"
 
 clean:
 	rm -rf "${STAGEDIR}" "${DISTDIR}" "${REPODIR}"
@@ -63,7 +64,7 @@ clean:
 stage: build-go
 	rm -rf "${STAGEDIR}"
 	mkdir -p "${STAGEDIR}"
-	rsync -a "${TOP}/files/" "${STAGEDIR}/"
+	cp -a "${TOP}/files/." "${STAGEDIR}/"
 	cp "${TOP}/pkg/+MANIFEST" "${STAGEDIR}/+MANIFEST"
 	cp "${TOP}/pkg/+INSTALL" "${STAGEDIR}/+INSTALL"
 	cp "${TOP}/pkg/+DEINSTALL" "${STAGEDIR}/+DEINSTALL"
@@ -80,4 +81,4 @@ pkg-repo: pkg
 	@echo "Repository metadata in ${REPODIR} (publish All/, Latest/, packagesite.*)"
 
 install: stage
-	rsync -a "${STAGEDIR}/" /
+	cp -a "${STAGEDIR}/." /
