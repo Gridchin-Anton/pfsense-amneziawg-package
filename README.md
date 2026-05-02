@@ -11,11 +11,12 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
 ## Prerequisites
 
 - **Build host:** FreeBSD **amd64** (pfSense 2.8 / FreeBSD 15-CURRENT is fine) with:
-  - **Go** (1.22+ recommended). On pfSense, Go is not installed by default; install it first:
+  - **Go** (1.22+ recommended). On pfSense, Go is not installed by default. The **FreeBSD `lang/go` metaport is often missing** from pfSense package feeds; use the **versioned** package instead (name changes over time):
     ```sh
-    pkg install -y lang/go
+    pkg search -x '^go[0-9]'
+    pkg install -y go123
     ```
-    The `Makefile` prepends `/usr/local/bin` to `PATH` for the build step (pfSense’s `make` often starts with a minimal `PATH`, so `go` can be installed but invisible until then). You can still force a path: `make GO=/usr/local/bin/go clean pkg`.
+    After install, `go` is typically `/usr/local/bin/go`. The `Makefile` prepends `/usr/local/bin` to `PATH` for the build (pfSense `make` may start with a minimal `PATH`). Override if needed: `make GO=/usr/local/bin/go clean pkg`.
   - `git`, `rsync`, `pkg`
 - **Runtime:** pfSense with PHP (as shipped), optional **`wg`** from **wireguard-tools** for the **Generate** private-key button (`wg genkey`).
 

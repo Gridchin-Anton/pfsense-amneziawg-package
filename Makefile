@@ -48,11 +48,11 @@ build-go: fetch
 		if [ -z "$$REALGO" ]; then \
 			echo ""; \
 			echo "===> Go not found (needed to compile amneziawg-go)."; \
-			echo "     pfSense/make often use a minimal PATH; we already tried /usr/local/bin/go."; \
-			echo "     Install:  pkg install -y lang/go"; \
-			echo "     Check:    ls -l /usr/local/bin/go  (or: pkg info go)"; \
-			echo "     Or set:   make GO=/path/to/go clean pkg"; \
-			echo "     Or skip:  make SKIP_GO=1 clean pkg   (stub binary; replace later)"; \
+			echo "     pfSense repos usually have a versioned port (not lang/go). For example:"; \
+			echo "       pkg search -x '^go[0-9]'"; \
+			echo "       pkg install -y go123"; \
+			echo "     Then: ls -l /usr/local/bin/go"; \
+			echo "     Or build on another FreeBSD host and copy amneziawg-go, or: make SKIP_GO=1 clean pkg"; \
 			echo ""; \
 			exit 1; \
 		fi; \
