@@ -4,6 +4,7 @@ set -e
 PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/sbin:${PATH}"
 export PATH
 
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SRC="$1"
 OUT="$2"
 PATCH_GOMOD="${3:-1}"
@@ -40,6 +41,10 @@ fi
 
 export GOTOOLCHAIN=local
 export GOWORK=off
+# Some FreeBSD 15-CURRENT / pfSense hosts hit SIGSEGV in netpoll during parallel
+# module fetches; keep the toolchain calmer for cmd/go network I/O.
+export GOMAXPROCS=1
+export GODEBUG=asyncpreemptoff=1
 
 cd "$SRC"
 
@@ -60,6 +65,15 @@ if [ "$PATCH_GOMOD" != "0" ]; then
 	fi
 fi
 
-echo "===> go build with $REALGO (GOROOT=${GOROOT:-})"
-exec env GOTOOLCHAIN=local GOWORK=off CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
-	"$REALGO" build -trimpath -ldflags="-s -w" -o "$OUT" .
+VFLAG=""
+if [ -d "$ROOT/third_party/amneziawg-go/vendor" ]; then
+	echo "===> Using vendored modules (third_party/amneziawg-go/vendor) — no network fetch"
+	rm -rf vendor
+	cp -a "$ROOT/third_party/amneziawg-go/vendor" .
+	VFLAG="-mod=vendor"
+fi
+
+echo "===> go build with $REALGO (GOROOT=${GOROOT:-}) GOMAXPROCS=$GOMAXPROCS GODEBUG=$GODEBUG"
+exec env GOTOOLCHAIN=local GOWORK=off GOMAXPROCS=1 GODEBUG=asyncpreemptoff=1 \
+	CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
+	"$REALGO" build -p 1 -trimpath $VFLAG -ldflags="-s -w" -o "$OUT" .

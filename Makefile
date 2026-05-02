@@ -18,7 +18,7 @@ SKIP_GO?=	0
 # toolchain (which can SIGSEGV on some 15-CURRENT/pfSense setups). Set to 0 to disable.
 AMNEZIAWG_PATCH_GOMOD?=	1
 
-.PHONY: all clean fetch build-go stage pkg pkg-repo install
+.PHONY: all clean fetch build-go vendor-export stage pkg pkg-repo install
 
 all: pkg
 
@@ -43,6 +43,16 @@ build-go: fetch
 		sh "${.CURDIR}/scripts/build-amneziawg-go.sh" \
 			"${AMNEZIAWG_SRC}" "${.CURDIR}/files/usr/local/bin/amneziawg-go" "$(AMNEZIAWG_PATCH_GOMOD)"; \
 	fi
+
+# Run on a machine with a working Go (Linux/macOS/FreeBSD): copies vendored deps
+# into third_party/amneziawg-go/vendor for offline pfSense builds (see third_party/README.md).
+vendor-export: fetch
+	cd "${AMNEZIAWG_SRC}" && go mod vendor
+	mkdir -p "${.CURDIR}/third_party/amneziawg-go"
+	rm -rf "${.CURDIR}/third_party/amneziawg-go/vendor"
+	cp -a "${AMNEZIAWG_SRC}/vendor" "${.CURDIR}/third_party/amneziawg-go/vendor"
+	rm -rf "${AMNEZIAWG_SRC}/vendor"
+	@echo "===> third_party/amneziawg-go/vendor ready (rsync repo to pfSense or commit)"
 
 clean:
 	rm -rf "${STAGEDIR}" "${DISTDIR}" "${REPODIR}"
