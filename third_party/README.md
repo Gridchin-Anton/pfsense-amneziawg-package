@@ -21,4 +21,4 @@ Copy the updated `pfsense-amneziawg-package` tree to pfSense (or commit `third_p
 make clean pkg
 ```
 
-`scripts/build-amneziawg-go.sh` detects `third_party/amneziawg-go/vendor` and runs **`go build -mod=vendor`**, which avoids the module proxy download path that triggers the crash on your kernel.
+`scripts/build-amneziawg-go.sh` detects `third_party/amneziawg-go/vendor` and runs **`go build -mod=vendor`** (no module proxy). If **`vendor/modules.txt`** records dependencies that need **Go ≥ 1.24** (common when **`make vendor-export`** ran on a machine that pulled the **go1.24** toolchain), the script uses **`GOTOOLCHAIN=auto`** for that build so the Go driver can install a newer **compiler only**; sources still come from **`vendor/`**. If that toolchain download crashes on your firewall, set **`AMNEZIAWG_GOTOOLCHAIN=local`** and either install **go124** on pfSense or regenerate vendor with a Go version matching the firewall.

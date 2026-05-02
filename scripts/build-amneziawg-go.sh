@@ -39,7 +39,6 @@ if [ -z "$GOROOT" ]; then
 	fi
 fi
 
-export GOTOOLCHAIN=local
 export GOWORK=off
 # Some FreeBSD 15-CURRENT / pfSense hosts hit SIGSEGV in netpoll during parallel
 # module fetches; keep the toolchain calmer for cmd/go network I/O.
@@ -67,13 +66,26 @@ fi
 
 VFLAG=""
 if [ -d "$ROOT/third_party/amneziawg-go/vendor" ]; then
-	echo "===> Using vendored modules (third_party/amneziawg-go/vendor) — no network fetch"
+	echo "===> Using vendored modules (third_party/amneziawg-go/vendor) — no module proxy fetch"
 	rm -rf vendor
 	cp -a "$ROOT/third_party/amneziawg-go/vendor" .
 	VFLAG="-mod=vendor"
 fi
 
-echo "===> go build with $REALGO (GOROOT=${GOROOT:-}) GOMAXPROCS=$GOMAXPROCS GODEBUG=$GODEBUG"
-exec env GOTOOLCHAIN=local GOWORK=off GOMAXPROCS=1 GODEBUG=asyncpreemptoff=1 \
+# Without vendor: keep GOTOOLCHAIN=local so cmd/go does not download a newer toolchain
+# (can SIGSEGV on some pfSense kernels during downloads).
+# With -mod=vendor: vendored deps may record go >= 1.24 while the host is go123 (1.23.x).
+# GOTOOLCHAIN=auto then only upgrades the *compiler*; modules still come from vendor/.
+GOTOOLCHAIN="${AMNEZIAWG_GOTOOLCHAIN:-}"
+if [ -z "$GOTOOLCHAIN" ]; then
+	if [ -n "$VFLAG" ]; then
+		GOTOOLCHAIN=auto
+	else
+		GOTOOLCHAIN=local
+	fi
+fi
+
+echo "===> go build with $REALGO (GOROOT=${GOROOT:-}) GOTOOLCHAIN=$GOTOOLCHAIN GOMAXPROCS=$GOMAXPROCS GODEBUG=$GODEBUG"
+exec env GOTOOLCHAIN="$GOTOOLCHAIN" GOWORK=off GOMAXPROCS=1 GODEBUG=asyncpreemptoff=1 \
 	CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
 	"$REALGO" build -p 1 -trimpath $VFLAG -ldflags="-s -w" -o "$OUT" .
