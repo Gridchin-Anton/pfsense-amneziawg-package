@@ -18,7 +18,7 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
     ```
     The **go123** package installs the toolchain under **`/usr/local/go123/`** (compiler is **`/usr/local/go123/bin/go`**). There is often **no** `/usr/local/bin/go` unless you add a symlink yourself. The `Makefile` detects `/usr/local/go*/bin/go`, sets **`GOROOT`** (required for trimmed/poudriere-built `go` binaries), and prepends `/usr/local/bin` to `PATH`. Override: `make GO=/usr/local/go123/bin/go clean pkg`.
 
-    **Toolchain / SIGSEGV:** upstream `amneziawg-go` may declare **`go 1.24.x`** in `go.mod`. Older `go123` (1.23.x) then tries to **download** `go1.24.x`, which can crash on some pfSense/15-CURRENT kernels. The `Makefile` **patches the `go` line in the cloned tree** to match the host (`go env GOVERSION`) and sets **`GOTOOLCHAIN=local`** so only the installed toolchain is used. To skip patching (strict upstream): `make AMNEZIAWG_PATCH_GOMOD=0 clean pkg` (then you need a Go version that satisfies `go.mod` without downloading).
+    **Toolchain / SIGSEGV:** upstream `amneziawg-go` may declare **`go 1.24.x`** in `go.mod`. Older `go123` (1.23.x) then tries to **download** `go1.24.x`, which can crash on some pfSense/15-CURRENT kernels. The `Makefile` **patches the `go` line** (and removes any **`toolchain`** line) in the cloned tree using the host’s **`go env GOVERSION`**, then builds with **`GOTOOLCHAIN=local`** and **`GOWORK=off`** so no parent `go.work` forces a newer toolchain. To skip patching: `make AMNEZIAWG_PATCH_GOMOD=0 clean pkg`.
   - `git`, `rsync`, `pkg`
 - **Runtime:** pfSense with PHP (as shipped), optional **`wg`** from **wireguard-tools** for the **Generate** private-key button (`wg genkey`).
 

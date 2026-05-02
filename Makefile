@@ -75,15 +75,21 @@ build-go: fetch
 		echo "===> Building amneziawg-go with $$REALGO (GOROOT=$$GOROOT)"; \
 		cd "${AMNEZIAWG_SRC}" || exit 1; \
 		if [ "$(AMNEZIAWG_PATCH_GOMOD)" != "0" ]; then \
-			NUMVER=$$("$$REALGO" env GOVERSION | sed 's/^go//'); \
+			NUMVER=`"$$REALGO" env GOVERSION | sed -e 's/^go//'`; \
+			NUMVER=`echo "$$NUMVER" | tr -d '\r\n'`; \
 			if [ -n "$$NUMVER" ]; then \
-				echo "===> Aligning go.mod language version to host: go $$NUMVER (was newer upstream)"; \
+				echo "===> Aligning go.mod to host toolchain: go $$NUMVER (upstream may require newer)"; \
 				cp -f go.mod go.mod.pfsense.bak; \
-				sed -i '' "s/^go .*/go $$NUMVER/" go.mod; \
+				sed -i.bak -e '/^toolchain[[:space:]]/d' \
+					-e "s/^go[[:space:]].*/go $$NUMVER/" go.mod; \
+				echo "===> go.mod head now:"; head -n 5 go.mod; \
+			else \
+				echo "===> WARNING: could not read GOVERSION; go.mod not patched"; \
 			fi; \
 		fi; \
 		export GOTOOLCHAIN=local; \
-		env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
+		export GOWORK=off; \
+		env GOTOOLCHAIN=local GOWORK=off CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
 			"$$REALGO" build -trimpath -ldflags="-s -w" \
 			-o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
 	fi
