@@ -10,6 +10,7 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
 
 ## Prerequisites
 
+- **Make:** The `Makefile` uses **`TOP=$(CURDIR)${.CURDIR}`** so it works with **GNU Make** (Linux: `make`) and **BSD Make** (pfSense/FreeBSD: `make`). Plain **`${.CURDIR}`** alone breaks on GNU Make because **`$(.CURDIR)` is empty**, which turned paths like `${.CURDIR}/work` into **`/work`**.
 - **Build host:** FreeBSD **amd64** (pfSense 2.8 / FreeBSD 15-CURRENT is fine) with:
   - **Go** (1.22+ recommended). On pfSense, Go is not installed by default. The **FreeBSD `lang/go` metaport is often missing** from pfSense package feeds; use the **versioned** package instead (name changes over time):
     ```sh
