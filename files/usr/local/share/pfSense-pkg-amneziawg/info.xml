@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<pfsense>
+	<package>
+		<name>AmneziaWG</name>
+		<internal_name>amneziawg</internal_name>
+		<descr><![CDATA[AmneziaWG userspace VPN (amneziawg-go) for pfSense — tunnel, obfuscation, and gateway integration.]]></descr>
+		<website>https://amnezia.org</website>
+		<category>VPN</category>
+		<version>0.1</version>
+		<configurationfile>amneziawg.xml</configurationfile>
+		<include_file>/usr/local/www/pkg/amneziawg/amneziawg.inc</include_file>
+		<maintainer>community &lt;pkg@example.invalid&gt;</maintainer>
+		<conf>
+			<port>0</port>
+		</conf>
+	</package>
+</pfsense>
