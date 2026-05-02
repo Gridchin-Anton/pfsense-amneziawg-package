@@ -15,6 +15,10 @@ AMNEZIAWG_SRC?=	${.CURDIR}/work/amneziawg-go
 # Go binary (override if not in PATH), e.g. GO=/usr/local/bin/go
 GO?=		go
 SKIP_GO?=	0
+# Upstream go.mod may require a newer Go than pfSense ships; patch the `go` line
+# to this host's version and use GOTOOLCHAIN=local to avoid auto-downloading a
+# toolchain (which can SIGSEGV on some 15-CURRENT/pfSense setups). Set to 0 to disable.
+AMNEZIAWG_PATCH_GOMOD?=	1
 
 .PHONY: all clean fetch build-go stage pkg pkg-repo install
 
@@ -69,8 +73,19 @@ build-go: fetch
 		fi; \
 		mkdir -p "${.CURDIR}/files/usr/local/bin"; \
 		echo "===> Building amneziawg-go with $$REALGO (GOROOT=$$GOROOT)"; \
-		cd "${AMNEZIAWG_SRC}" && env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
-			"$$REALGO" build -trimpath -ldflags="-s -w" -o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
+		cd "${AMNEZIAWG_SRC}" || exit 1; \
+		if [ "$(AMNEZIAWG_PATCH_GOMOD)" != "0" ]; then \
+			NUMVER=$$("$$REALGO" env GOVERSION | sed 's/^go//'); \
+			if [ -n "$$NUMVER" ]; then \
+				echo "===> Aligning go.mod language version to host: go $$NUMVER (was newer upstream)"; \
+				cp -f go.mod go.mod.pfsense.bak; \
+				sed -i '' "s/^go .*/go $$NUMVER/" go.mod; \
+			fi; \
+		fi; \
+		export GOTOOLCHAIN=local; \
+		env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
+			"$$REALGO" build -trimpath -ldflags="-s -w" \
+			-o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
 	fi
 
 clean:
