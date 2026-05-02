@@ -12,8 +12,6 @@ AMNEZIAWG_REPO?=	https://github.com/amnezia-vpn/amneziawg-go
 AMNEZIAWG_TAG?=	master
 AMNEZIAWG_SRC?=	${.CURDIR}/work/amneziawg-go
 
-# Go binary (override if not in PATH), e.g. GO=/usr/local/bin/go
-GO?=		go
 SKIP_GO?=	0
 # Upstream go.mod may require a newer Go than pfSense ships; patch the `go` line
 # to this host's version and use GOTOOLCHAIN=local to avoid auto-downloading a
@@ -40,58 +38,10 @@ build-go: fetch
 			> "${.CURDIR}/files/usr/local/bin/amneziawg-go"; \
 		chmod 0555 "${.CURDIR}/files/usr/local/bin/amneziawg-go"; \
 	else \
-		PATH="/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/sbin:$$PATH"; \
-		export PATH; \
-		REALGO=""; \
-		GROOT=$$(ls -d /usr/local/go[0-9]* 2>/dev/null | sort -V | tail -1); \
-		if [ -n "$$GROOT" ] && [ -x "$$GROOT/bin/go" ]; then \
-			REALGO="$$GROOT/bin/go"; \
-			export GOROOT="$$GROOT"; \
-		fi; \
-		if [ -z "$$REALGO" ]; then \
-			for G in /usr/local/bin/go /usr/local/sbin/go /usr/local/go/bin/go; do \
-				if [ -x "$$G" ]; then REALGO="$$G"; break; fi; \
-			done; \
-		fi; \
-		if [ -z "$$REALGO" ] && command -v "${GO}" >/dev/null 2>&1; then \
-			REALGO=$$(command -v "${GO}"); \
-		fi; \
-		if [ -n "$$REALGO" ] && [ -z "$$GOROOT" ]; then \
-			GROOT=$$(ls -d /usr/local/go[0-9]* 2>/dev/null | sort -V | tail -1); \
-			if [ -n "$$GROOT" ] && [ -d "$$GROOT/src" ]; then export GOROOT="$$GROOT"; fi; \
-		fi; \
-		if [ -z "$$REALGO" ]; then \
-			echo ""; \
-			echo "===> Go not found (needed to compile amneziawg-go)."; \
-			echo "     On pfSense install a versioned package, e.g.:"; \
-			echo "       pkg search -x '^go[0-9]'   # then: pkg install -y go123"; \
-			echo "     Go lives under /usr/local/go123/bin/go (not /usr/local/bin/go)."; \
-			echo "     Or: make GO=/usr/local/go123/bin/go clean pkg"; \
-			echo "     Or: make SKIP_GO=1 clean pkg   (stub binary)"; \
-			echo ""; \
-			exit 1; \
-		fi; \
 		mkdir -p "${.CURDIR}/files/usr/local/bin"; \
-		echo "===> Building amneziawg-go with $$REALGO (GOROOT=$$GOROOT)"; \
-		cd "${AMNEZIAWG_SRC}" || exit 1; \
-		if [ "$(AMNEZIAWG_PATCH_GOMOD)" != "0" ]; then \
-			NUMVER=`"$$REALGO" env GOVERSION | sed -e 's/^go//'`; \
-			NUMVER=`echo "$$NUMVER" | tr -d '\r\n'`; \
-			if [ -n "$$NUMVER" ]; then \
-				echo "===> Aligning go.mod to host toolchain: go $$NUMVER (upstream may require newer)"; \
-				cp -f go.mod go.mod.pfsense.bak; \
-				sed -i.bak -e '/^toolchain[[:space:]]/d' \
-					-e "s/^go[[:space:]].*/go $$NUMVER/" go.mod; \
-				echo "===> go.mod head now:"; head -n 5 go.mod; \
-			else \
-				echo "===> WARNING: could not read GOVERSION; go.mod not patched"; \
-			fi; \
-		fi; \
-		export GOTOOLCHAIN=local; \
-		export GOWORK=off; \
-		env GOTOOLCHAIN=local GOWORK=off CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 \
-			"$$REALGO" build -trimpath -ldflags="-s -w" \
-			-o "${.CURDIR}/files/usr/local/bin/amneziawg-go" . ; \
+		chmod 755 "${.CURDIR}/scripts/build-amneziawg-go.sh"; \
+		sh "${.CURDIR}/scripts/build-amneziawg-go.sh" \
+			"${AMNEZIAWG_SRC}" "${.CURDIR}/files/usr/local/bin/amneziawg-go" "$(AMNEZIAWG_PATCH_GOMOD)"; \
 	fi
 
 clean:
