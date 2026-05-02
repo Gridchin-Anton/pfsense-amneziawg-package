@@ -50,13 +50,6 @@ stage: build-go
 	cp "${.CURDIR}/pkg/+MANIFEST" "${STAGEDIR}/+MANIFEST"
 	cp "${.CURDIR}/pkg/+INSTALL" "${STAGEDIR}/+INSTALL"
 	cp "${.CURDIR}/pkg/+DEINSTALL" "${STAGEDIR}/+DEINSTALL"
-	# Optional: embed ABI from build host when available
-	@if command -v pkg >/dev/null 2>&1; then \
-		ABI=$$(pkg config ABI 2>/dev/null || true); \
-		if [ -n "$$ABI" ]; then \
-			printf '\nabi: ["%s"]\n' "$$ABI" >> "${STAGEDIR}/+MANIFEST"; \
-		fi; \
-	fi
 
 pkg: stage
 	mkdir -p "${DISTDIR}"
