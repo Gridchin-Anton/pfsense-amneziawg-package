@@ -15,7 +15,7 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
     ```sh
     pkg install -y lang/go
     ```
-    Then `make clean pkg` will use `/usr/local/bin/go` automatically if `go` is not yet on your `PATH`. You can also pass an explicit path: `make GO=/usr/local/bin/go clean pkg`.
+    The `Makefile` prepends `/usr/local/bin` to `PATH` for the build step (pfSense’s `make` often starts with a minimal `PATH`, so `go` can be installed but invisible until then). You can still force a path: `make GO=/usr/local/bin/go clean pkg`.
   - `git`, `rsync`, `pkg`
 - **Runtime:** pfSense with PHP (as shipped), optional **`wg`** from **wireguard-tools** for the **Generate** private-key button (`wg genkey`).
 
