@@ -1,0 +1,16 @@
+#!/bin/sh
+# post-deinstall for pfsense-pkg-amneziawg
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+export PATH
+
+if [ -f /usr/local/etc/rc.d/amneziawg ]; then
+	/usr/local/etc/rc.d/amneziawg stop 2>/dev/null || true
+fi
+
+if [ -x /usr/sbin/sysrc ]; then
+	/usr/sbin/sysrc amneziawg_enable=NO >/dev/null 2>&1 || true
+fi
+
+echo "pfsense-pkg-amneziawg: removed. AmneziaWG settings may still exist in config.xml; remove them from the backup if desired."
+
+exit 0
