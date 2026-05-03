@@ -67,7 +67,7 @@ ls work/dist/
 pkg add --force ./work/dist/pfSense-pkg-amneziawg-0.2.pkg
 ```
 
-**Why `pkg add` alone used to hide the VPN menu:** pfSense only adds **VPN / Package Manager** entries when **`install_package_xml()`** updates **`config.xml`**. Plain **`pkg add`** installs files but skips that step. This package’s **`+POST_INSTALL`** runs **`amneziawg_register.php`** (via **`fcgicli`** or **`php`**) so the **AmneziaWG** item appears under **VPN** like a GUI-installed package.
+**Why `pkg add` alone used to hide the VPN menu:** pfSense only adds **VPN / Package Manager** entries when **`install_package_xml()`** updates **`config.xml`**. Plain **`pkg add`** installs files but skips that step. This package’s **`+POST_INSTALL`** runs **`amneziawg_register.php`** (via **`fcgicli`** or **`php`**) so the **AmneziaWG** item appears under **VPN** like a GUI-installed package. The menu **`<section>`** in **`amneziawg.xml`** must match the capitalized name **`VPN`** (see **`return_ext_menu("VPN")`** in **`head.inc`**); a lowercase **`vpn`** entry is stored in **`config.xml`** but never shown in the sidebar.
 
 If you installed an **older build** named **`pfsense-pkg-amneziawg`** (lowercase), remove it before installing this one: **`pkg delete -y pfsense-pkg-amneziawg`**, then **`pkg add`** the new **`.pkg`**. On an already-installed tree without re-running post-install, run once: **`/usr/local/bin/php -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php`**.
 

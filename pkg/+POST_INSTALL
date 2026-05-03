@@ -19,13 +19,17 @@ if [ -x /usr/sbin/sysrc ]; then
 fi
 
 # Register in config.xml / VPN menu (pkg add alone does not — same as GUI installer).
-if [ -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php ]; then
-	chmod 0555 /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php 2>/dev/null || true
-	if [ -x /usr/local/sbin/fcgicli ]; then
-		/usr/local/sbin/fcgicli -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php || \
-			/usr/local/bin/php -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php || true
-	else
-		/usr/local/bin/php -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php || true
+REG=/usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php
+if [ -f "$REG" ]; then
+	chmod 0555 "$REG" 2>/dev/null || true
+	reg_ok=0
+	if [ -x /usr/local/sbin/fcgicli ] && /usr/local/sbin/fcgicli -f "$REG"; then
+		reg_ok=1
+	elif /usr/local/bin/php -f "$REG"; then
+		reg_ok=1
+	fi
+	if [ "$reg_ok" != 1 ]; then
+		echo "pfSense-pkg-amneziawg: WARNING: GUI registration failed. Run: /usr/local/bin/php -f $REG" >&2
 	fi
 fi
 

@@ -8,7 +8,7 @@
 	<menu>
 		<name>AmneziaWG</name>
 		<tooltiptext>AmneziaWG VPN (userspace)</tooltiptext>
-		<section>vpn</section>
+		<section>VPN</section>
 		<url>/pkg/amneziawg/vpn_amneziawg.php</url>
 	</menu>
 	<tabs>
