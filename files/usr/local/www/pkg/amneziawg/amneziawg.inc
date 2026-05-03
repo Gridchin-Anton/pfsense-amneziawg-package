@@ -377,10 +377,24 @@ function amneziawg_write_daemon_files(array $tunnel): void
 }
 
 /**
+ * Normalize UAPI text read from disk (Windows editors / paste): strip UTF-8 BOM, CRLF -> LF.
+ * Avoids malformed first lines (e.g. daemon seeing key "ce_peers" instead of "replace_peers").
+ */
+function amneziawg_normalize_uapi_body(string $body): string
+{
+	$body = str_replace(["\r\n", "\r"], "\n", $body);
+	if (strncmp($body, "\xEF\xBB\xBF", 3) === 0) {
+		$body = substr($body, 3);
+	}
+	return $body;
+}
+
+/**
  * Apply UAPI to a running daemon (unix socket).
  */
 function amneziawg_uapi_apply(string $ifname, string $uapiBody, int $timeout = 8): array
 {
+	$uapiBody = amneziawg_normalize_uapi_body($uapiBody);
 	$sockPath = AMNEZIAWG_RUN_DIR . '/' . $ifname . '.sock';
 	$deadline = time() + $timeout;
 	while (!file_exists($sockPath) && time() < $deadline) {
