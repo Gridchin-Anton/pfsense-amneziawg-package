@@ -44,6 +44,30 @@ if (($_POST['act'] ?? '') === 'genkey') {
 	}
 }
 
+if (($_POST['act'] ?? '') === 'import_link') {
+	$link = trim((string)($_POST['import_link'] ?? ''));
+	$r = amneziawg_import_vpn_link($link);
+	if (!$r['ok']) {
+		$input_errors[] = $r['error'];
+	} else {
+		$new = $r['tunnel'];
+		$new['ifname'] = $tunnel['ifname'];
+		$new['enable'] = $tunnel['enable'];
+		$new['auto_gateway'] = $tunnel['auto_gateway'];
+		$new['gateway_name'] = $tunnel['gateway_name'];
+		$new['gateway_monitor'] = $tunnel['gateway_monitor'];
+		if (($new['descr'] ?? '') === '') {
+			$new['descr'] = $tunnel['descr'];
+		}
+		amneziawg_set_config(['tunnel' => $new, 'globals' => $globals]);
+		write_config('AmneziaWG: imported from vpn:// link');
+		$full = amneziawg_get_config();
+		$tunnel = array_merge(amneziawg_default_tunnel(), $full['tunnel'] ?? []);
+		$globals = array_merge(amneziawg_default_globals(), $full['globals'] ?? []);
+		$savemsg = gettext('Configuration imported. Review settings, enable the tunnel if desired, then click Save to validate and apply.');
+	}
+}
+
 if ($_POST['save'] ?? false) {
 	[$tunnel, $globals] = amneziawg_parse_settings_post();
 
@@ -120,6 +144,23 @@ function h($s)
 
 ?>
 <form method="post" class="form-horizontal">
+<div class="panel panel-default">
+	<div class="panel-heading"><h2 class="panel-title"><?= gettext('Import from Amnezia link') ?></h2></div>
+	<div class="panel-body">
+		<p class="text-muted"><?= gettext('Paste a vpn:// share link from the AmneziaVPN app, or raw Amnezia JSON / WireGuard text with [Interface] and [Peer] sections. Keys and obfuscation fields are filled automatically. Interface name, gateway options, and enable/disable are left as they are now — review then click Save to validate and apply.') ?></p>
+		<div class="form-group">
+			<div class="col-sm-12">
+				<textarea name="import_link" class="form-control" rows="4" placeholder="vpn://..."></textarea>
+			</div>
+		</div>
+		<div class="form-group">
+			<div class="col-sm-12">
+				<button type="submit" name="act" value="import_link" class="btn btn-primary" formnovalidate="formnovalidate"><?= gettext('Import') ?></button>
+			</div>
+		</div>
+	</div>
+</div>
+
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?= gettext('Tunnel') ?></h2></div>
 	<div class="panel-body">

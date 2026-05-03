@@ -614,6 +614,374 @@ function amneziawg_valid_tunnel_cidr(string $s): bool
 }
 
 /**
+ * Maximum length for pasted vpn:// or JSON import (bytes).
+ */
+if (!defined('AMNEZIAWG_IMPORT_MAXLEN')) {
+	define('AMNEZIAWG_IMPORT_MAXLEN', 524288);
+}
+
+/**
+ * Decode Amnezia `vpn://` share link to UTF-8 text (JSON or WireGuard .ini).
+ * Matches Amnezia desktop import: strip scheme, Base64URL, zlib payload after
+ * 4-byte big-endian uncompressed size (Qt qUncompress layout).
+ */
+function amneziawg_decode_vpn_link(string $url): ?string
+{
+	$url = trim($url);
+	if ($url === '' || strncasecmp($url, 'vpn://', 6) !== 0) {
+		return null;
+	}
+	$b64 = substr($url, 6);
+	$b64 = strtr($b64, '-_', '+/');
+	$pad = strlen($b64) % 4;
+	if ($pad !== 0) {
+		$b64 .= str_repeat('=', 4 - $pad);
+	}
+	$raw = base64_decode($b64, true);
+	if ($raw === false || $raw === '') {
+		return null;
+	}
+	if (strlen($raw) > 4) {
+		$body = substr($raw, 4);
+		$unc = @gzuncompress($body);
+		if ($unc !== false && $unc !== '') {
+			return $unc;
+		}
+	}
+	$unc = @gzuncompress($raw);
+	if ($unc !== false && $unc !== '') {
+		return $unc;
+	}
+	return null;
+}
+
+/**
+ * Strip Amnezia DNS placeholders and tidy commas.
+ */
+function amneziawg_sanitize_import_dns(string $dns): string
+{
+	$dns = preg_replace('/\$PRIMARY_DNS|\$SECONDARY_DNS/i', '', $dns);
+	$dns = preg_replace('/\s+/', ' ', trim($dns));
+	return trim($dns, " \t,");
+}
+
+/**
+ * Ensure tunnel address is CIDR (append /32 for plain host IPs).
+ */
+function amneziawg_normalize_tunnel_address(string $addr): string
+{
+	$addr = trim($addr);
+	if ($addr === '') {
+		return '';
+	}
+	if (amneziawg_valid_tunnel_cidr($addr)) {
+		return $addr;
+	}
+	if (filter_var($addr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		return $addr . '/32';
+	}
+	if (filter_var($addr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+		return $addr . '/128';
+	}
+	return $addr;
+}
+
+/**
+ * Parse [Interface] / [Peer] sections into flat maps (WireGuard / AmneziaWG .conf).
+ *
+ * @return array{iface: array<string,string>, peers: array<int, array<string,string>>}
+ */
+function amneziawg_parse_wg_ini_sections(string $ini): array
+{
+	$iface = [];
+	$peers = [];
+	$cur = null;
+	$section = null;
+	$ini = str_replace("\r\n", "\n", $ini);
+	foreach (explode("\n", $ini) as $line) {
+		$line = trim($line);
+		if ($line === '' || (isset($line[0]) && $line[0] === '#')) {
+			continue;
+		}
+		if (preg_match('/^\[([^\]]+)\]\s*$/', $line, $m)) {
+			$section = strtolower($m[1]);
+			if ($section === 'peer') {
+				if ($cur !== null) {
+					$peers[] = $cur;
+				}
+				$cur = [];
+			}
+			continue;
+		}
+		if ($section === null || strpos($line, '=') === false) {
+			continue;
+		}
+		[$k, $v] = explode('=', $line, 2);
+		$k = trim($k);
+		$v = trim($v);
+		if ($section === 'interface') {
+			$iface[$k] = $v;
+		} elseif ($section === 'peer' && $cur !== null) {
+			$cur[$k] = $v;
+		}
+	}
+	if ($cur !== null && $cur !== []) {
+		$peers[] = $cur;
+	}
+	return ['iface' => $iface, 'peers' => $peers];
+}
+
+/**
+ * Map WireGuard [Interface]/[Peer] maps into package tunnel shape (merged with defaults).
+ *
+ * @param array<string,string> $iface
+ * @param array<int, array<string,string>> $peerMaps
+ */
+function amneziawg_tunnel_from_wg_maps(array $iface, array $peerMaps, string $descr = ''): array
+{
+	$tunnel = amneziawg_default_tunnel();
+	if ($descr !== '') {
+		$tunnel['descr'] = $descr;
+	}
+	$mapObf = [
+		'Jc' => 'jc', 'Jmin' => 'jmin', 'Jmax' => 'jmax',
+		'S1' => 's1', 'S2' => 's2', 'S3' => 's3', 'S4' => 's4',
+		'H1' => 'h1', 'H2' => 'h2', 'H3' => 'h3', 'H4' => 'h4',
+		'I1' => 'i1', 'I2' => 'i2', 'I3' => 'i3', 'I4' => 'i4', 'I5' => 'i5',
+	];
+	foreach ($mapObf as $ik => $tk) {
+		if (!empty($iface[$ik])) {
+			$tunnel[$tk] = trim((string)$iface[$ik]);
+		}
+	}
+	if (!empty($iface['PrivateKey'])) {
+		$tunnel['privkey'] = trim((string)$iface['PrivateKey']);
+	}
+	if (!empty($iface['Address'])) {
+		$tunnel['address'] = amneziawg_normalize_tunnel_address((string)$iface['Address']);
+	}
+	if (!empty($iface['MTU'])) {
+		$tunnel['mtu'] = (string)(int)$iface['MTU'];
+	}
+	if (!empty($iface['DNS'])) {
+		$tunnel['dns'] = amneziawg_sanitize_import_dns((string)$iface['DNS']);
+	}
+	if (isset($iface['ListenPort']) && $iface['ListenPort'] !== '') {
+		$tunnel['listenport'] = (string)(int)$iface['ListenPort'];
+	} else {
+		$tunnel['listenport'] = '0';
+	}
+	$tunnel['peers'] = [];
+	$n = 0;
+	foreach ($peerMaps as $pmap) {
+		$n++;
+		$peer = amneziawg_default_peer();
+		$peer['name'] = $n === 1 ? gettext('Imported') : (gettext('Imported') . ' ' . $n);
+		if (!empty($pmap['PublicKey'])) {
+			$peer['pubkey'] = trim((string)$pmap['PublicKey']);
+		}
+		if (!empty($pmap['PresharedKey'])) {
+			$peer['psk'] = trim((string)$pmap['PresharedKey']);
+		} elseif (!empty($pmap['PreSharedKey'])) {
+			$peer['psk'] = trim((string)$pmap['PreSharedKey']);
+		}
+		if (!empty($pmap['Endpoint'])) {
+			$peer['endpoint'] = trim((string)$pmap['Endpoint']);
+		}
+		if (!empty($pmap['AllowedIPs'])) {
+			$peer['allowed_ips'] = trim((string)$pmap['AllowedIPs']);
+		}
+		if (isset($pmap['PersistentKeepalive']) && $pmap['PersistentKeepalive'] !== '') {
+			$peer['keepalive'] = (string)(int)$pmap['PersistentKeepalive'];
+		}
+		$tunnel['peers'][] = $peer;
+	}
+	return $tunnel;
+}
+
+/**
+ * Build tunnel from Amnezia `last_config` JSON object (when .conf text is absent).
+ */
+function amneziawg_tunnel_from_inner_json(array $inner): array
+{
+	$tunnel = amneziawg_default_tunnel();
+	$tunnel['listenport'] = '0';
+	$mapObf = [
+		'Jc' => 'jc', 'Jmin' => 'jmin', 'Jmax' => 'jmax',
+		'S1' => 's1', 'S2' => 's2', 'S3' => 's3', 'S4' => 's4',
+		'H1' => 'h1', 'H2' => 'h2', 'H3' => 'h3', 'H4' => 'h4',
+		'I1' => 'i1', 'I2' => 'i2', 'I3' => 'i3', 'I4' => 'i4', 'I5' => 'i5',
+	];
+	foreach ($mapObf as $ik => $tk) {
+		if (!empty($inner[$ik])) {
+			$tunnel[$tk] = trim((string)$inner[$ik]);
+		}
+	}
+	if (!empty($inner['client_priv_key'])) {
+		$tunnel['privkey'] = trim((string)$inner['client_priv_key']);
+	}
+	if (!empty($inner['client_ip'])) {
+		$tunnel['address'] = amneziawg_normalize_tunnel_address((string)$inner['client_ip']);
+	}
+	if (!empty($inner['mtu'])) {
+		$tunnel['mtu'] = (string)(int)$inner['mtu'];
+	}
+	$peer = amneziawg_default_peer();
+	$peer['name'] = gettext('Imported');
+	if (!empty($inner['server_pub_key'])) {
+		$peer['pubkey'] = trim((string)$inner['server_pub_key']);
+	}
+	if (!empty($inner['psk_key'])) {
+		$peer['psk'] = trim((string)$inner['psk_key']);
+	}
+	$host = trim((string)($inner['hostName'] ?? ''));
+	$port = $inner['port'] ?? '';
+	if ($host !== '' && $port !== '' && $port !== null) {
+		$peer['endpoint'] = $host . ':' . (int)$port;
+	}
+	if (isset($inner['allowed_ips'])) {
+		if (is_array($inner['allowed_ips'])) {
+			$peer['allowed_ips'] = implode(', ', array_map('strval', $inner['allowed_ips']));
+		} else {
+			$peer['allowed_ips'] = trim((string)$inner['allowed_ips']);
+		}
+		if ($peer['allowed_ips'] === '') {
+			$peer['allowed_ips'] = amneziawg_default_peer()['allowed_ips'];
+		}
+	}
+	if (isset($inner['persistent_keep_alive']) && $inner['persistent_keep_alive'] !== '') {
+		$peer['keepalive'] = (string)(int)$inner['persistent_keep_alive'];
+	}
+	$tunnel['peers'] = [$peer];
+	return $tunnel;
+}
+
+/**
+ * Validate imported tunnel material (same key rules as the settings form).
+ */
+function amneziawg_import_validate_tunnel(array $tunnel): ?string
+{
+	if ($tunnel['privkey'] !== '' && !amneziawg_valid_key_b64($tunnel['privkey'])) {
+		return gettext('Invalid interface private key after import.');
+	}
+	foreach ($tunnel['peers'] as $i => $p) {
+		if ($p['pubkey'] !== '' && !amneziawg_valid_key_b64($p['pubkey'])) {
+			return sprintf(gettext('Invalid public key for peer #%d after import.'), $i + 1);
+		}
+		if ($p['psk'] !== '' && !amneziawg_valid_key_b64($p['psk'])) {
+			return sprintf(gettext('Invalid pre-shared key for peer #%d after import.'), $i + 1);
+		}
+	}
+	return null;
+}
+
+/**
+ * Import tunnel from decoded vpn:// text, JSON root, or raw WireGuard .ini.
+ *
+ * @return array{ok: bool, error: string, tunnel: ?array}
+ */
+function amneziawg_import_decoded_config(string $text): array
+{
+	$text = preg_replace("/^\xEF\xBB\xBF/", '', trim($text));
+	if ($text === '') {
+		return ['ok' => false, 'error' => gettext('Empty configuration.'), 'tunnel' => null];
+	}
+	$descr = '';
+	if (stripos($text, '[Interface]') !== false) {
+		$parsed = amneziawg_parse_wg_ini_sections($text);
+		if ($parsed['iface'] === [] || $parsed['peers'] === []) {
+			return ['ok' => false, 'error' => gettext('WireGuard config must include [Interface] and at least one [Peer] section.'), 'tunnel' => null];
+		}
+		$tunnel = amneziawg_tunnel_from_wg_maps($parsed['iface'], $parsed['peers'], $descr);
+		$err = amneziawg_import_validate_tunnel($tunnel);
+		if ($err !== null) {
+			return ['ok' => false, 'error' => $err, 'tunnel' => null];
+		}
+		return ['ok' => true, 'error' => '', 'tunnel' => $tunnel];
+	}
+	$root = json_decode($text, true);
+	if (!is_array($root)) {
+		return ['ok' => false, 'error' => gettext('Not valid JSON and not a WireGuard [Interface] configuration.'), 'tunnel' => null];
+	}
+	if (!empty($root['description'])) {
+		$descr = trim((string)$root['description']);
+	}
+	$lastConfigStr = null;
+	foreach ($root['containers'] ?? [] as $c) {
+		if (!is_array($c)) {
+			continue;
+		}
+		if (!empty($c['awg']['last_config']) && is_string($c['awg']['last_config'])) {
+			$lastConfigStr = $c['awg']['last_config'];
+			break;
+		}
+	}
+	if ($lastConfigStr === null) {
+		foreach ($root['containers'] ?? [] as $c) {
+			if (!is_array($c)) {
+				continue;
+			}
+			if (!empty($c['wireguard']['last_config']) && is_string($c['wireguard']['last_config'])) {
+				$lastConfigStr = $c['wireguard']['last_config'];
+				break;
+			}
+		}
+	}
+	if ($lastConfigStr === null) {
+		return ['ok' => false, 'error' => gettext('No Amnezia WireGuard or AmneziaWG (awg) block found in this export.'), 'tunnel' => null];
+	}
+	$inner = json_decode($lastConfigStr, true);
+	if (!is_array($inner)) {
+		return ['ok' => false, 'error' => gettext('Could not parse inner last_config JSON.'), 'tunnel' => null];
+	}
+	$tunnel = null;
+	if (!empty($inner['config']) && is_string($inner['config']) && stripos($inner['config'], '[Interface]') !== false) {
+		$parsed = amneziawg_parse_wg_ini_sections($inner['config']);
+		if ($parsed['iface'] !== [] && $parsed['peers'] !== []) {
+			$tunnel = amneziawg_tunnel_from_wg_maps($parsed['iface'], $parsed['peers'], $descr);
+		}
+	}
+	if ($tunnel === null) {
+		$tunnel = amneziawg_tunnel_from_inner_json($inner);
+	}
+	if ($descr !== '') {
+		$tunnel['descr'] = $descr;
+	}
+	if ($tunnel['privkey'] === '' || $tunnel['peers'] === [] || $tunnel['peers'][0]['pubkey'] === '') {
+		return ['ok' => false, 'error' => gettext('Import is missing private key or peer public key.'), 'tunnel' => null];
+	}
+	$err = amneziawg_import_validate_tunnel($tunnel);
+	if ($err !== null) {
+		return ['ok' => false, 'error' => $err, 'tunnel' => null];
+	}
+	return ['ok' => true, 'error' => '', 'tunnel' => $tunnel];
+}
+
+/**
+ * Import from Amnezia `vpn://` link, or raw JSON / .conf pasted without the scheme.
+ *
+ * @return array{ok: bool, error: string, tunnel: ?array}
+ */
+function amneziawg_import_vpn_link(string $url): array
+{
+	$url = trim($url);
+	if ($url === '') {
+		return ['ok' => false, 'error' => gettext('Paste a vpn:// link or configuration.'), 'tunnel' => null];
+	}
+	if (strlen($url) > AMNEZIAWG_IMPORT_MAXLEN) {
+		return ['ok' => false, 'error' => gettext('Input is too long.'), 'tunnel' => null];
+	}
+	if (stripos($url, 'vpn://') === 0) {
+		$decoded = amneziawg_decode_vpn_link($url);
+		if ($decoded === null) {
+			return ['ok' => false, 'error' => gettext('Could not decode vpn:// (invalid base64 or compressed data).'), 'tunnel' => null];
+		}
+		return amneziawg_import_decoded_config($decoded);
+	}
+	return amneziawg_import_decoded_config($url);
+}
+
+/**
  * Build tunnel + globals from HTTP POST (settings form).
  */
 function amneziawg_parse_settings_post(): array
