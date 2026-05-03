@@ -73,7 +73,7 @@ stage: build-go
 pkg: stage
 	mkdir -p "${DISTDIR}"
 	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -o "${DISTDIR}"
-	@echo "Package: $$(ls -1t "${DISTDIR}"/*.txz 2>/dev/null | head -1)"
+	@echo "Package: `ls -1t ${DISTDIR}/*.txz 2>/dev/null | head -1`"
 
 pkg-repo: pkg
 	mkdir -p "${REPODIR}/All" "${REPODIR}/Latest"
