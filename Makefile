@@ -73,7 +73,9 @@ stage: build-go
 
 pkg: stage
 	mkdir -p "${DISTDIR}"
-	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -o "${DISTDIR}"
+	@# pkg create -m/-r alone does NOT pack staged files; need -p plist or +MANIFEST "file hash path" lines.
+	cd "${STAGEDIR}" && find . -type f | sed 's|^\./|/|' | LC_ALL=C sort > "${PKGMETA}/+PLIST"
+	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -p "${PKGMETA}/+PLIST" -o "${DISTDIR}"
 	@if ! ls "${DISTDIR}"/pfSense-pkg-*.pkg 1>/dev/null 2>&1 && ! ls "${DISTDIR}"/pfSense-pkg-*.txz 1>/dev/null 2>&1; then \
 		echo "ERROR: no pfSense-pkg-*.{pkg,txz} under ${DISTDIR}." >&2; \
 		echo "If you only see pfsense-pkg-* (lowercase), that is a stale build: rm work/dist/*.pkg && make clean pkg" >&2; \

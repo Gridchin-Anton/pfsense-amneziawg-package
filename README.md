@@ -30,6 +30,8 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
 
 ## Build the package
 
+**`pkg create` payload:** when using **`-m`** (metadata dir) and **`-r`** (staging root), **`pkg(8)`** only packs staged files if you also pass **`-p`** with a plist, or list each path in **`+MANIFEST`** as `file <sha256> <path>`. This **`Makefile`** writes **`work/pkgmeta/+PLIST`** from the staged tree, then runs **`pkg create … -p …`**. Builds that skipped **`-p`** produced a package **`pkg add`** registered in the database but **installed no files** (for example **`ls /usr/local/share/pfSense-pkg-amneziawg/`** missing). After pulling the fix, run **`make clean pkg`** and reinstall.
+
 After **`git pull`**, always **`make clean pkg`** on the firewall before **`pkg add`**. Otherwise **`work/dist/`** can still hold an **older** archive (e.g. lowercase **`pfsense-pkg-*`**) while **`pkg add`** for **`pfSense-pkg-*`** fails with “No such file or directory” — and installing the stale file skips GUI registration.
 
 ```sh
