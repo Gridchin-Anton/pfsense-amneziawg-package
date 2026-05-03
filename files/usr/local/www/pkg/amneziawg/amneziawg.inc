@@ -688,12 +688,19 @@ function amneziawg_rc_ifconfig(): int
 	$if = $j['interface']['name'] ?? 'amnezia0';
 	$addr = trim((string)($j['interface']['address'] ?? ''));
 	$mtu = (int)($j['interface']['mtu'] ?? 0);
-	if ($mtu > 576 && $mtu < 65535) {
-		mwexec('/sbin/ifconfig ' . escapeshellarg($if) . ' mtu ' . (int)$mtu);
-	}
+	/*
+	 * One ifconfig(8) with "up": userspace TUN often stays without IFF_UP until brought up.
+	 * On FreeBSD/pfSense, address family must come before mtu (e.g. "mtu … inet …" yields "inet: bad value").
+	 */
+	$cmd = '/sbin/ifconfig ' . escapeshellarg($if);
 	if ($addr !== '') {
-		mwexec('/sbin/ifconfig ' . escapeshellarg($if) . ' inet ' . escapeshellarg($addr));
+		$cmd .= ' inet ' . escapeshellarg($addr);
 	}
+	if ($mtu > 576 && $mtu < 65535) {
+		$cmd .= ' mtu ' . (int)$mtu;
+	}
+	$cmd .= ' up';
+	mwexec($cmd);
 	return 0;
 }
 
