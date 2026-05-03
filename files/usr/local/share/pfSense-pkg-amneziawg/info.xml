@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<pfsense>
+<pfsensepkgs>
 	<package>
 		<name>AmneziaWG</name>
 		<internal_name>amneziawg</internal_name>
@@ -10,8 +10,5 @@
 		<configurationfile>amneziawg.xml</configurationfile>
 		<include_file>/usr/local/www/pkg/amneziawg/amneziawg.inc</include_file>
 		<maintainer>community &lt;pkg@example.invalid&gt;</maintainer>
-		<conf>
-			<port>0</port>
-		</conf>
 	</package>
-</pfsense>
+</pfsensepkgs>

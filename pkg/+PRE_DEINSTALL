@@ -1,0 +1,10 @@
+#!/bin/sh
+# Run before files are removed: unregister from config.xml / menus while amneziawg.xml still exists.
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+export PATH
+
+if [ -x /usr/local/bin/php ]; then
+	/usr/local/bin/php -r 'require_once("/etc/inc/globals.inc"); require_once("/etc/inc/config.inc"); require_once("/etc/inc/pkg-utils.inc"); delete_package_xml("amneziawg");' 2>/dev/null || true
+fi
+
+exit 0

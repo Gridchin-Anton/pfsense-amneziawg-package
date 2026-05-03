@@ -1,5 +1,5 @@
 #!/bin/sh
-# post-install for pfsense-pkg-amneziawg (pkg create +POST_INSTALL)
+# post-install for pfSense-pkg-amneziawg (pkg create +POST_INSTALL)
 set -e
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 export PATH
@@ -18,6 +18,17 @@ if [ -x /usr/sbin/sysrc ]; then
 	/usr/sbin/sysrc amneziawg_enable=YES >/dev/null 2>&1 || true
 fi
 
-echo "pfsense-pkg-amneziawg: installed. Open VPN > AmneziaWG in the web UI, or run: /usr/local/etc/rc.d/amneziawg start"
+# Register in config.xml / VPN menu (pkg add alone does not — same as GUI installer).
+if [ -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php ]; then
+	chmod 0555 /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php 2>/dev/null || true
+	if [ -x /usr/local/sbin/fcgicli ]; then
+		/usr/local/sbin/fcgicli -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php || \
+			/usr/local/bin/php -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php || true
+	else
+		/usr/local/bin/php -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php || true
+	fi
+fi
+
+echo "pfSense-pkg-amneziawg: installed. Open VPN > AmneziaWG in the web UI, or run: /usr/local/etc/rc.d/amneziawg start"
 
 exit 0

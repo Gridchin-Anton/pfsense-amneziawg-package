@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<pfsense>
+<packagegui>
+	<copyright></copyright>
+	<name>amneziawg</name>
+	<version>0.1</version>
+	<title>AmneziaWG</title>
+	<include_file>/usr/local/www/pkg/amneziawg/amneziawg.inc</include_file>
 	<menu>
 		<name>AmneziaWG</name>
 		<tooltiptext>AmneziaWG VPN (userspace)</tooltiptext>
@@ -27,4 +32,4 @@
 		<executable>amneziawg-go</executable>
 		<description>AmneziaWG userspace daemon</description>
 	</service>
-</pfsense>
+</packagegui>

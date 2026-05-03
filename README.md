@@ -1,4 +1,4 @@
-# pfSense package: AmneziaWG (`pfsense-pkg-amneziawg`)
+# pfSense package: AmneziaWG (`pfSense-pkg-amneziawg`)
 
 This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that runs the userspace daemon [**amneziawg-go**](https://github.com/amnezia-vpn/amneziawg-go), exposes a **VPN → AmneziaWG** web UI (settings, status, logs), and can add a **dynamic IPv4 gateway** once the tunnel interface is assigned under **Interfaces → Assignments**.
 
@@ -37,7 +37,7 @@ cd pfsense-amneziawg-package
 make clean pkg
 ```
 
-Output: `work/dist/pfsense-pkg-amneziawg-0.1.pkg` or `.txz` depending on **`pkg create`** defaults on your image (version follows `Makefile` / `+MANIFEST`). Use **`ls work/dist/`** and pass that filename to **`pkg add`**.
+Output: `work/dist/pfSense-pkg-amneziawg-0.1.pkg` or `.txz` depending on **`pkg create`** defaults on your image (version follows `Makefile` / `+MANIFEST`). Use **`ls work/dist/`** and pass that filename to **`pkg add`**.
 
 To build **without** compiling Go (placeholder binary that exits with an error):
 
@@ -61,10 +61,14 @@ Copy the package file (`.pkg` or `.txz`) to the firewall, then:
 
 ```sh
 ls work/dist/
-pkg add --force ./work/dist/pfsense-pkg-amneziawg-0.1.pkg
+pkg add --force ./work/dist/pfSense-pkg-amneziawg-0.1.pkg
 ```
 
-Reload the GUI or re-run the package registration step if the **VPN → AmneziaWG** menu does not appear immediately (some images require a GUI reload or `php -f /etc/rc.reload_all`).
+**Why `pkg add` alone used to hide the VPN menu:** pfSense only adds **VPN / Package Manager** entries when **`install_package_xml()`** updates **`config.xml`**. Plain **`pkg add`** installs files but skips that step. This package’s **`+POST_INSTALL`** runs **`amneziawg_register.php`** (via **`fcgicli`** or **`php`**) so the **AmneziaWG** item appears under **VPN** like a GUI-installed package.
+
+If you installed an **older build** named **`pfsense-pkg-amneziawg`** (lowercase), remove it before installing this one: **`pkg delete -y pfsense-pkg-amneziawg`**, then **`pkg add`** the new **`.pkg`**. On an already-installed tree without re-running post-install, run once: **`/usr/local/bin/php -f /usr/local/share/pfSense-pkg-amneziawg/amneziawg_register.php`**.
+
+Reload the GUI if the **VPN → AmneziaWG** menu does not appear immediately (some images need a refresh or **`/etc/rc.reload_all`**).
 
 ## Operation
 

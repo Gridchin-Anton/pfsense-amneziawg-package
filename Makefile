@@ -68,17 +68,18 @@ stage: build-go
 	cp -a "${TOP}/files/." "${STAGEDIR}/"
 	cp "${TOP}/pkg/+MANIFEST" "${PKGMETA}/+MANIFEST"
 	cp "${TOP}/pkg/+POST_INSTALL" "${PKGMETA}/+POST_INSTALL"
+	cp "${TOP}/pkg/+PRE_DEINSTALL" "${PKGMETA}/+PRE_DEINSTALL"
 	cp "${TOP}/pkg/+POST_DEINSTALL" "${PKGMETA}/+POST_DEINSTALL"
 
 pkg: stage
 	mkdir -p "${DISTDIR}"
 	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -o "${DISTDIR}"
-	@echo "Package: `ls -1t ${DISTDIR}/pfsense-pkg-*.* 2>/dev/null | head -1`"
+	@echo "Package: `ls -1t ${DISTDIR}/pfSense-pkg-*.* 2>/dev/null | head -1`"
 
 pkg-repo: pkg
 	mkdir -p "${REPODIR}/All" "${REPODIR}/Latest"
-	cp "${DISTDIR}"/pfsense-pkg-*.pkg "${REPODIR}/All/" 2>/dev/null || true
-	cp "${DISTDIR}"/pfsense-pkg-*.txz "${REPODIR}/All/" 2>/dev/null || true
+	cp "${DISTDIR}"/pfSense-pkg-*.pkg "${REPODIR}/All/" 2>/dev/null || true
+	cp "${DISTDIR}"/pfSense-pkg-*.txz "${REPODIR}/All/" 2>/dev/null || true
 	cd "${REPODIR}" && pkg repo .
 	@echo "Repository metadata in ${REPODIR} (publish All/, Latest/, packagesite.*)"
 
