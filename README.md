@@ -73,7 +73,7 @@ Reload the GUI or re-run the package registration step if the **VPN → AmneziaW
 4. Use **policy routing** (firewall rules / aliases / pfBlockerNG) to send selected traffic out that gateway.
 
 **Service control:** `/usr/local/etc/rc.d/amneziawg {start|stop|restart|status|reload}`  
-Boot integration uses `amneziawg_enable` in `rc.conf` (set by the **+INSTALL** script) and a local **`/usr/local/etc/amneziawg/enabled`** flag (`1`/`0`) written from the GUI so the tunnel **Enable** switch does not fight `sysrc` on every change.
+Boot integration uses `amneziawg_enable` in `rc.conf` (set by the **`+POST_INSTALL`** script) and a local **`/usr/local/etc/amneziawg/enabled`** flag (`1`/`0`) written from the GUI so the tunnel **Enable** switch does not fight `sysrc` on every change.
 
 ## Files installed
 

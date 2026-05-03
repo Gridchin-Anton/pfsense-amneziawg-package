@@ -1,5 +1,5 @@
 #!/bin/sh
-# post-install for pfsense-pkg-amneziawg
+# post-install for pfsense-pkg-amneziawg (pkg create +POST_INSTALL)
 set -e
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 export PATH

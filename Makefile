@@ -8,6 +8,7 @@ PKGNAME=	pfsense-pkg-amneziawg
 # BSD Make sets ${.CURDIR} and leaves $(CURDIR) empty. Concatenation yields the repo root on both.
 TOP=	$(CURDIR)${.CURDIR}
 STAGEDIR=	${TOP}/work/stage
+PKGMETA=	${TOP}/work/pkgmeta
 DISTDIR=	${TOP}/work/dist
 REPODIR=	${TOP}/work/repo
 
@@ -59,19 +60,19 @@ vendor-export: fetch
 	@echo "===> third_party/amneziawg-go/vendor ready (copy repo to pfSense or commit)"
 
 clean:
-	rm -rf "${STAGEDIR}" "${DISTDIR}" "${REPODIR}"
+	rm -rf "${STAGEDIR}" "${PKGMETA}" "${DISTDIR}" "${REPODIR}"
 
 stage: build-go
-	rm -rf "${STAGEDIR}"
-	mkdir -p "${STAGEDIR}"
+	rm -rf "${STAGEDIR}" "${PKGMETA}"
+	mkdir -p "${STAGEDIR}" "${PKGMETA}"
 	cp -a "${TOP}/files/." "${STAGEDIR}/"
-	cp "${TOP}/pkg/+MANIFEST" "${STAGEDIR}/+MANIFEST"
-	cp "${TOP}/pkg/+INSTALL" "${STAGEDIR}/+INSTALL"
-	cp "${TOP}/pkg/+DEINSTALL" "${STAGEDIR}/+DEINSTALL"
+	cp "${TOP}/pkg/+MANIFEST" "${PKGMETA}/+MANIFEST"
+	cp "${TOP}/pkg/+POST_INSTALL" "${PKGMETA}/+POST_INSTALL"
+	cp "${TOP}/pkg/+POST_DEINSTALL" "${PKGMETA}/+POST_DEINSTALL"
 
 pkg: stage
 	mkdir -p "${DISTDIR}"
-	cd "${STAGEDIR}" && pkg create -r . -m ./+MANIFEST -o "${DISTDIR}"
+	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -o "${DISTDIR}"
 	@echo "Package: $$(ls -1t "${DISTDIR}"/*.txz 2>/dev/null | head -1)"
 
 pkg-repo: pkg

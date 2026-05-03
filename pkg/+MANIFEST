@@ -6,6 +6,3 @@ maintainer: "homelab <homelab@local>"
 www: https://amnezia.org
 origin: local/pfsense-pkg-amneziawg
 prefix: /
-scripts:
-  post-install: +INSTALL
-  post-deinstall: +DEINSTALL
