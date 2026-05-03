@@ -876,33 +876,30 @@ function amneziawg_import_validate_tunnel(array $tunnel): ?string
 }
 
 /**
- * Import tunnel from decoded vpn:// text, JSON root, or raw WireGuard .ini.
+ * True when text is a raw WireGuard .conf (first non-empty line is [Interface]).
+ * Amnezia vpn:// decodes to JSON that *contains* "[Interface]" inside strings; that must not use this path.
+ */
+function amneziawg_text_looks_like_wg_conf(string $text): bool
+{
+	$text = str_replace("\r\n", "\n", $text);
+	foreach (explode("\n", $text) as $line) {
+		$line = trim($line);
+		if ($line === '' || (isset($line[0]) && $line[0] === '#')) {
+			continue;
+		}
+		return strncasecmp($line, '[Interface]', strlen('[Interface]')) === 0;
+	}
+	return false;
+}
+
+/**
+ * Import from Amnezia JSON root (decoded vpn:// body or pasted export).
  *
  * @return array{ok: bool, error: string, tunnel: ?array}
  */
-function amneziawg_import_decoded_config(string $text): array
+function amneziawg_import_from_amnezia_json(array $root): array
 {
-	$text = preg_replace("/^\xEF\xBB\xBF/", '', trim($text));
-	if ($text === '') {
-		return ['ok' => false, 'error' => gettext('Empty configuration.'), 'tunnel' => null];
-	}
 	$descr = '';
-	if (stripos($text, '[Interface]') !== false) {
-		$parsed = amneziawg_parse_wg_ini_sections($text);
-		if ($parsed['iface'] === [] || $parsed['peers'] === []) {
-			return ['ok' => false, 'error' => gettext('WireGuard config must include [Interface] and at least one [Peer] section.'), 'tunnel' => null];
-		}
-		$tunnel = amneziawg_tunnel_from_wg_maps($parsed['iface'], $parsed['peers'], $descr);
-		$err = amneziawg_import_validate_tunnel($tunnel);
-		if ($err !== null) {
-			return ['ok' => false, 'error' => $err, 'tunnel' => null];
-		}
-		return ['ok' => true, 'error' => '', 'tunnel' => $tunnel];
-	}
-	$root = json_decode($text, true);
-	if (!is_array($root)) {
-		return ['ok' => false, 'error' => gettext('Not valid JSON and not a WireGuard [Interface] configuration.'), 'tunnel' => null];
-	}
 	if (!empty($root['description'])) {
 		$descr = trim((string)$root['description']);
 	}
@@ -935,7 +932,7 @@ function amneziawg_import_decoded_config(string $text): array
 		return ['ok' => false, 'error' => gettext('Could not parse inner last_config JSON.'), 'tunnel' => null];
 	}
 	$tunnel = null;
-	if (!empty($inner['config']) && is_string($inner['config']) && stripos($inner['config'], '[Interface]') !== false) {
+	if (!empty($inner['config']) && is_string($inner['config']) && amneziawg_text_looks_like_wg_conf($inner['config'])) {
 		$parsed = amneziawg_parse_wg_ini_sections($inner['config']);
 		if ($parsed['iface'] !== [] && $parsed['peers'] !== []) {
 			$tunnel = amneziawg_tunnel_from_wg_maps($parsed['iface'], $parsed['peers'], $descr);
@@ -955,6 +952,39 @@ function amneziawg_import_decoded_config(string $text): array
 		return ['ok' => false, 'error' => $err, 'tunnel' => null];
 	}
 	return ['ok' => true, 'error' => '', 'tunnel' => $tunnel];
+}
+
+/**
+ * Import tunnel from decoded vpn:// text, JSON root, or raw WireGuard .ini.
+ *
+ * @return array{ok: bool, error: string, tunnel: ?array}
+ */
+function amneziawg_import_decoded_config(string $text): array
+{
+	$text = preg_replace("/^\xEF\xBB\xBF/", '', trim($text));
+	if ($text === '') {
+		return ['ok' => false, 'error' => gettext('Empty configuration.'), 'tunnel' => null];
+	}
+
+	$root = json_decode($text, true);
+	if (json_last_error() === JSON_ERROR_NONE && is_array($root) && isset($root['containers']) && is_array($root['containers'])) {
+		return amneziawg_import_from_amnezia_json($root);
+	}
+
+	if (amneziawg_text_looks_like_wg_conf($text)) {
+		$parsed = amneziawg_parse_wg_ini_sections($text);
+		if ($parsed['iface'] === [] || $parsed['peers'] === []) {
+			return ['ok' => false, 'error' => gettext('WireGuard config must include [Interface] and at least one [Peer] section.'), 'tunnel' => null];
+		}
+		$tunnel = amneziawg_tunnel_from_wg_maps($parsed['iface'], $parsed['peers'], '');
+		$err = amneziawg_import_validate_tunnel($tunnel);
+		if ($err !== null) {
+			return ['ok' => false, 'error' => $err, 'tunnel' => null];
+		}
+		return ['ok' => true, 'error' => '', 'tunnel' => $tunnel];
+	}
+
+	return ['ok' => false, 'error' => gettext('Unrecognized format: expected Amnezia JSON (with "containers"), or a WireGuard .conf whose first section line is [Interface].'), 'tunnel' => null];
 }
 
 /**
