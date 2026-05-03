@@ -37,7 +37,7 @@ cd pfsense-amneziawg-package
 make clean pkg
 ```
 
-Output: `work/dist/pfsense-pkg-amneziawg-0.1.txz` (version follows `Makefile` / `+MANIFEST`).
+Output: `work/dist/pfsense-pkg-amneziawg-0.1.pkg` or `.txz` depending on **`pkg create`** defaults on your image (version follows `Makefile` / `+MANIFEST`). Use **`ls work/dist/`** and pass that filename to **`pkg add`**.
 
 To build **without** compiling Go (placeholder binary that exits with an error):
 
@@ -57,10 +57,11 @@ On pfSense, add your repo URL under **System → Package Manager** (or `pkg` con
 
 ## Install on pfSense
 
-Copy the `.txz` to the firewall, then:
+Copy the package file (`.pkg` or `.txz`) to the firewall, then:
 
 ```sh
-pkg add --force ./pfsense-pkg-amneziawg-0.1.txz
+ls work/dist/
+pkg add --force ./work/dist/pfsense-pkg-amneziawg-0.1.pkg
 ```
 
 Reload the GUI or re-run the package registration step if the **VPN → AmneziaWG** menu does not appear immediately (some images require a GUI reload or `php -f /etc/rc.reload_all`).

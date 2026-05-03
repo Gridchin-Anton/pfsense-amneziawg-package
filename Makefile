@@ -73,11 +73,12 @@ stage: build-go
 pkg: stage
 	mkdir -p "${DISTDIR}"
 	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -o "${DISTDIR}"
-	@echo "Package: `ls -1t ${DISTDIR}/*.txz 2>/dev/null | head -1`"
+	@echo "Package: `ls -1t ${DISTDIR}/pfsense-pkg-*.* 2>/dev/null | head -1`"
 
 pkg-repo: pkg
 	mkdir -p "${REPODIR}/All" "${REPODIR}/Latest"
-	cp "${DISTDIR}/"*.txz "${REPODIR}/All/" 2>/dev/null || true
+	cp "${DISTDIR}"/pfsense-pkg-*.pkg "${REPODIR}/All/" 2>/dev/null || true
+	cp "${DISTDIR}"/pfsense-pkg-*.txz "${REPODIR}/All/" 2>/dev/null || true
 	cd "${REPODIR}" && pkg repo .
 	@echo "Repository metadata in ${REPODIR} (publish All/, Latest/, packagesite.*)"
 
