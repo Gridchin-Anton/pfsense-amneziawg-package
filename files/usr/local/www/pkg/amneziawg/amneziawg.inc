@@ -13,17 +13,88 @@ define('AMNEZIAWG_RUN_DIR', '/var/run/amneziawg');
 define('AMNEZIAWG_BINARY', '/usr/local/bin/amneziawg-go');
 
 /**
+ * True if a string must not be written raw into config.xml (angle brackets, etc.).
+ */
+function amneziawg_storage_field_needs_xml_escape(string $v): bool
+{
+	return (bool)preg_match('/[<>&\x00-\x08\x0B\x0C\x0E-\x1F]/u', $v);
+}
+
+/**
+ * Encode tunnel fields for XML storage (pfSense config.xml cannot hold raw `<` in text nodes).
+ * Uses prefix `b64:` + base64 (UTF-8). I1–I5 from Amnezia are always encoded when non-empty.
+ */
+function amneziawg_storage_encode_tunnel(array $t): array
+{
+	$alwaysB64 = ['i1', 'i2', 'i3', 'i4', 'i5'];
+	foreach ($alwaysB64 as $k) {
+		if (!isset($t[$k]) || $t[$k] === '' || $t[$k] === null) {
+			continue;
+		}
+		$v = (string)$t[$k];
+		if (strncmp($v, 'b64:', 4) === 0) {
+			continue;
+		}
+		$t[$k] = 'b64:' . base64_encode($v);
+	}
+	foreach (['h1', 'h2', 'h3', 'h4'] as $k) {
+		if (!isset($t[$k]) || $t[$k] === '' || $t[$k] === null) {
+			continue;
+		}
+		$v = (string)$t[$k];
+		if (strncmp($v, 'b64:', 4) === 0) {
+			continue;
+		}
+		if (amneziawg_storage_field_needs_xml_escape($v)) {
+			$t[$k] = 'b64:' . base64_encode($v);
+		}
+	}
+	if (isset($t['descr']) && $t['descr'] !== '' && $t['descr'] !== null) {
+		$v = (string)$t['descr'];
+		if (strncmp($v, 'b64:', 4) !== 0 && amneziawg_storage_field_needs_xml_escape($v)) {
+			$t['descr'] = 'b64:' . base64_encode($v);
+		}
+	}
+	return $t;
+}
+
+/**
+ * Decode tunnel fields after reading from config.xml.
+ */
+function amneziawg_storage_decode_tunnel(array $t): array
+{
+	foreach (['i1', 'i2', 'i3', 'i4', 'i5', 'h1', 'h2', 'h3', 'h4', 'descr'] as $k) {
+		if (!isset($t[$k]) || $t[$k] === '' || $t[$k] === null) {
+			continue;
+		}
+		$v = (string)$t[$k];
+		if (strncmp($v, 'b64:', 4) === 0) {
+			$d = base64_decode(substr($v, 4), true);
+			if ($d !== false) {
+				$t[$k] = $d;
+			}
+		}
+	}
+	return $t;
+}
+
+/**
  * Return package configuration array (tunnel + peers + globals).
  */
 function amneziawg_get_config(): array
 {
 	if (function_exists('config_get_path')) {
 		$c = config_get_path('amneziawg');
-		return is_array($c) ? $c : [];
+		$c = is_array($c) ? $c : [];
+	} else {
+		global $config;
+		$c = (isset($config['amneziawg']) && is_array($config['amneziawg']))
+			? $config['amneziawg'] : [];
 	}
-	global $config;
-	return isset($config['amneziawg']) && is_array($config['amneziawg'])
-		? $config['amneziawg'] : [];
+	if (!empty($c['tunnel']) && is_array($c['tunnel'])) {
+		$c['tunnel'] = amneziawg_storage_decode_tunnel($c['tunnel']);
+	}
+	return $c;
 }
 
 /**
@@ -31,6 +102,9 @@ function amneziawg_get_config(): array
  */
 function amneziawg_set_config(array $cfg): void
 {
+	if (!empty($cfg['tunnel']) && is_array($cfg['tunnel'])) {
+		$cfg['tunnel'] = amneziawg_storage_encode_tunnel($cfg['tunnel']);
+	}
 	if (function_exists('config_set_path')) {
 		config_set_path('amneziawg', $cfg);
 		return;
@@ -687,6 +761,24 @@ function amneziawg_normalize_tunnel_address(string $addr): string
 }
 
 /**
+ * Normalize pasted WireGuard / AmneziaWG text for parsing.
+ * AmneziaVPN "AmneziaWG native format" copy uses escaped section headers: \[Interface\] \[Peer\].
+ */
+function amneziawg_normalize_wg_conf_paste(string $text): string
+{
+	$repl = [
+		'\\[Interface\\]' => '[Interface]',
+		'\\[interface\\]' => '[Interface]',
+		'\\[Peer\\]' => '[Peer]',
+		'\\[peer\\]' => '[Peer]',
+	];
+	foreach ($repl as $from => $to) {
+		$text = str_replace($from, $to, $text);
+	}
+	return $text;
+}
+
+/**
  * Parse [Interface] / [Peer] sections into flat maps (WireGuard / AmneziaWG .conf).
  *
  * @return array{iface: array<string,string>, peers: array<int, array<string,string>>}
@@ -697,6 +789,7 @@ function amneziawg_parse_wg_ini_sections(string $ini): array
 	$peers = [];
 	$cur = null;
 	$section = null;
+	$ini = amneziawg_normalize_wg_conf_paste($ini);
 	$ini = str_replace("\r\n", "\n", $ini);
 	foreach (explode("\n", $ini) as $line) {
 		$line = trim($line);
@@ -881,6 +974,7 @@ function amneziawg_import_validate_tunnel(array $tunnel): ?string
  */
 function amneziawg_text_looks_like_wg_conf(string $text): bool
 {
+	$text = amneziawg_normalize_wg_conf_paste($text);
 	$text = str_replace("\r\n", "\n", $text);
 	foreach (explode("\n", $text) as $line) {
 		$line = trim($line);

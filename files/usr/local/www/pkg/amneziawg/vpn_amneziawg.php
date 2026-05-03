@@ -147,7 +147,7 @@ function h($s)
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?= gettext('Import from Amnezia link') ?></h2></div>
 	<div class="panel-body">
-		<p class="text-muted"><?= gettext('Paste a vpn:// share link from the AmneziaVPN app, or raw Amnezia JSON / WireGuard text with [Interface] and [Peer] sections. Keys and obfuscation fields are filled automatically. Interface name, gateway options, and enable/disable are left as they are now — review then click Save to validate and apply.') ?></p>
+		<p class="text-muted"><?= gettext('Paste a vpn:// share link from the AmneziaVPN app, AmneziaWG native text copied from the app (backslash-escaped [Interface] and [Peer] lines are supported), raw Amnezia JSON, or a standard WireGuard .conf. Keys and obfuscation fields are filled automatically. Interface name, gateway options, and enable/disable are left as they are now — review then click Save to validate and apply.') ?></p>
 		<div class="form-group">
 			<div class="col-sm-12">
 				<textarea name="import_link" class="form-control" rows="4" placeholder="vpn://..."></textarea>
