@@ -1,10 +1,7 @@
 name: pfsense-pkg-amneziawg
 version: "0.1"
 comment: "AmneziaWG VPN integration for pfSense (userspace)"
-desc: |-
-  Installs amneziawg-go, rc script, and web GUI for AmneziaWG tunnels
-  (UAPI configuration, obfuscation parameters, gateway helper).
-  Domain routing remains policy-based in pfSense (aliases / pfBlockerNG).
+desc: "Installs amneziawg-go, rc script, and web GUI for AmneziaWG tunnels with UAPI configuration, obfuscation parameters, and gateway helper. Domain routing remains policy-based in pfSense (aliases / pfBlockerNG)."
 maintainer: "homelab <homelab@local>"
 www: https://amnezia.org
 origin: local/pfsense-pkg-amneziawg
