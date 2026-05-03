@@ -11,6 +11,14 @@ define('AMNEZIAWG_CONFIG_PATH', '/usr/local/etc/amneziawg/config.json');
 define('AMNEZIAWG_UAPI_PATH', '/usr/local/etc/amneziawg/uapi.conf');
 define('AMNEZIAWG_RUN_DIR', '/var/run/amneziawg');
 define('AMNEZIAWG_BINARY', '/usr/local/bin/amneziawg-go');
+/*
+ * Under config path amneziawg/, the tunnel block must NOT use the key name "tunnel":
+ * pfSense xmlparse listtags() treats "tunnel" as a repeating list tag, so dump_xml_config
+ * corrupts a normal associative tunnel array and config.xml round-trip loses settings.
+ */
+if (!defined('AMNEZIAWG_CFG_STORAGEKEY')) {
+	define('AMNEZIAWG_CFG_STORAGEKEY', 'awgcfg');
+}
 
 /**
  * True if a string must not be written raw into config.xml (angle brackets, etc.).
@@ -80,37 +88,61 @@ function amneziawg_storage_decode_tunnel(array $t): array
 
 /**
  * Return package configuration array (tunnel + peers + globals).
+ * Always exposes `tunnel` and `globals` keys for callers; reads from `awgcfg` in config.xml
+ * or legacy `tunnel` if present.
  */
 function amneziawg_get_config(): array
 {
 	if (function_exists('config_get_path')) {
-		$c = config_get_path('amneziawg');
-		$c = is_array($c) ? $c : [];
+		$c = config_get_path('amneziawg', []);
 	} else {
 		global $config;
-		$c = (isset($config['amneziawg']) && is_array($config['amneziawg']))
-			? $config['amneziawg'] : [];
+		$c = $config['amneziawg'] ?? [];
 	}
-	if (!empty($c['tunnel']) && is_array($c['tunnel'])) {
-		$c['tunnel'] = amneziawg_storage_decode_tunnel($c['tunnel']);
+	$c = is_array($c) ? $c : [];
+	$sk = AMNEZIAWG_CFG_STORAGEKEY;
+	$raw = null;
+	if (!empty($c[$sk]) && is_array($c[$sk])) {
+		$raw = $c[$sk];
+	} elseif (!empty($c['tunnel']) && is_array($c['tunnel'])) {
+		$raw = $c['tunnel'];
 	}
-	return $c;
+	$tunnel = [];
+	if (is_array($raw)) {
+		$tunnel = amneziawg_storage_decode_tunnel($raw);
+	}
+	$globals = (isset($c['globals']) && is_array($c['globals'])) ? $c['globals'] : [];
+	return ['tunnel' => $tunnel, 'globals' => $globals];
 }
 
 /**
  * Persist full AmneziaWG package config.
+ * Writes tunnel data under amneziawg/awgcfg (not "tunnel") so pfSense XML export stays valid.
  */
 function amneziawg_set_config(array $cfg): void
 {
-	if (!empty($cfg['tunnel']) && is_array($cfg['tunnel'])) {
-		$cfg['tunnel'] = amneziawg_storage_encode_tunnel($cfg['tunnel']);
+	$cur = [];
+	if (function_exists('config_get_path')) {
+		$cur = config_get_path('amneziawg', []);
+	} else {
+		global $config;
+		$cur = $config['amneziawg'] ?? [];
+	}
+	$cur = is_array($cur) ? $cur : [];
+	unset($cur['tunnel']);
+	$out = $cur;
+	if (isset($cfg['globals']) && is_array($cfg['globals'])) {
+		$out['globals'] = $cfg['globals'];
+	}
+	if (isset($cfg['tunnel']) && is_array($cfg['tunnel'])) {
+		$out[AMNEZIAWG_CFG_STORAGEKEY] = amneziawg_storage_encode_tunnel($cfg['tunnel']);
 	}
 	if (function_exists('config_set_path')) {
-		config_set_path('amneziawg', $cfg);
+		config_set_path('amneziawg', $out);
 		return;
 	}
 	global $config;
-	$config['amneziawg'] = $cfg;
+	$config['amneziawg'] = $out;
 }
 
 /**
