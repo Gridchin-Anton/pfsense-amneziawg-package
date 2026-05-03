@@ -6,7 +6,7 @@
 		<descr><![CDATA[AmneziaWG userspace VPN (amneziawg-go) for pfSense — tunnel, obfuscation, and gateway integration.]]></descr>
 		<website>https://amnezia.org</website>
 		<category>VPN</category>
-		<version>0.1</version>
+		<version>0.2</version>
 		<configurationfile>amneziawg.xml</configurationfile>
 		<include_file>/usr/local/www/pkg/amneziawg/amneziawg.inc</include_file>
 		<maintainer>community &lt;pkg@example.invalid&gt;</maintainer>

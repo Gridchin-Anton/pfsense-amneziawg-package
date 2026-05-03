@@ -30,14 +30,17 @@ This repository builds an installable **FreeBSD pkg** for pfSense 2.8.x that run
 
 ## Build the package
 
+After **`git pull`**, always **`make clean pkg`** on the firewall before **`pkg add`**. Otherwise **`work/dist/`** can still hold an **older** archive (e.g. lowercase **`pfsense-pkg-*`**) while **`pkg add`** for **`pfSense-pkg-*`** fails with “No such file or directory” — and installing the stale file skips GUI registration.
+
 ```sh
 cd pfsense-amneziawg-package
 # Optional: pin a tag
 # make AMNEZIAWG_TAG=v0.x.y
 make clean pkg
+ls work/dist/
 ```
 
-Output: `work/dist/pfSense-pkg-amneziawg-0.1.pkg` or `.txz` depending on **`pkg create`** defaults on your image (version follows `Makefile` / `+MANIFEST`). Use **`ls work/dist/`** and pass that filename to **`pkg add`**.
+Output: **`work/dist/pfSense-pkg-amneziawg-0.2.pkg`** (or **`.txz`**) — version tracks **`Makefile` `VERSION`** and **`pkg/+MANIFEST`**. Only install the **`pfSense-pkg-`** file **`ls`** shows after this build.
 
 To build **without** compiling Go (placeholder binary that exits with an error):
 
@@ -61,7 +64,7 @@ Copy the package file (`.pkg` or `.txz`) to the firewall, then:
 
 ```sh
 ls work/dist/
-pkg add --force ./work/dist/pfSense-pkg-amneziawg-0.1.pkg
+pkg add --force ./work/dist/pfSense-pkg-amneziawg-0.2.pkg
 ```
 
 **Why `pkg add` alone used to hide the VPN menu:** pfSense only adds **VPN / Package Manager** entries when **`install_package_xml()`** updates **`config.xml`**. Plain **`pkg add`** installs files but skips that step. This package’s **`+POST_INSTALL`** runs **`amneziawg_register.php`** (via **`fcgicli`** or **`php`**) so the **AmneziaWG** item appears under **VPN** like a GUI-installed package.

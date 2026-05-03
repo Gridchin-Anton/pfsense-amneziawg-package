@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <packagegui>
 	<name>pfSense-pkg-amneziawg</name>
-	<version>0.1</version>
+	<version>0.2</version>
 	<title>AmneziaWG</title>
 	<savetext>AmneziaWG VPN package metadata for custom pkg repositories.</savetext>
 	<include_file>/usr/local/www/pkg/amneziawg/amneziawg.inc</include_file>

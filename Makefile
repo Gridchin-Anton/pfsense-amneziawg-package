@@ -1,9 +1,9 @@
-# Build pfsense-pkg-amneziawg: amneziawg-go (FreeBSD/amd64) + pkg txz
+# Build pfSense-pkg-amneziawg: amneziawg-go (FreeBSD/amd64) + pkg archive
 # Run on FreeBSD amd64 with Go 1.22+ and pkg installed.
 # Homelab pfSense: Go 1.26.2 from go.dev tarball → /usr/local/go124/ (see TOOLCHAIN-PIN.txt).
 
-VERSION=	0.1
-PKGNAME=	pfsense-pkg-amneziawg
+VERSION=	0.2
+PKGNAME=	pfSense-pkg-amneziawg
 # GNU Make sets $(CURDIR) and treats $(.CURDIR) as empty, so ${.CURDIR}/foo becomes /foo.
 # BSD Make sets ${.CURDIR} and leaves $(CURDIR) empty. Concatenation yields the repo root on both.
 TOP=	$(CURDIR)${.CURDIR}
@@ -74,6 +74,12 @@ stage: build-go
 pkg: stage
 	mkdir -p "${DISTDIR}"
 	pkg create -r "${STAGEDIR}" -m "${PKGMETA}" -o "${DISTDIR}"
+	@if ! ls "${DISTDIR}"/pfSense-pkg-*.pkg 1>/dev/null 2>&1 && ! ls "${DISTDIR}"/pfSense-pkg-*.txz 1>/dev/null 2>&1; then \
+		echo "ERROR: no pfSense-pkg-*.{pkg,txz} under ${DISTDIR}." >&2; \
+		echo "If you only see pfsense-pkg-* (lowercase), that is a stale build: rm work/dist/*.pkg && make clean pkg" >&2; \
+		ls -la "${DISTDIR}" >&2; \
+		exit 1; \
+	fi
 	@echo "Package: `ls -1t ${DISTDIR}/pfSense-pkg-*.* 2>/dev/null | head -1`"
 
 pkg-repo: pkg
